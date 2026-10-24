@@ -36,28 +36,28 @@
     {
       "name": "appflare-sandbox-standard-1",
       "class_name": "Sandbox",
-      "image": "docker.io/mendylanda/appflare-sandbox:0.1.8",
+      "image": "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
       "instance_type": "standard-1",
       "max_instances": 2
     },
     {
       "name": "appflare-sandbox-standard-2",
       "class_name": "LargeSandbox",
-      "image": "docker.io/mendylanda/appflare-sandbox:0.1.8",
+      "image": "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
       "instance_type": "standard-2",
       "max_instances": 1
     },
     {
       "name": "appflare-sandbox-self-deploying-standard-1",
       "class_name": "SelfDeployingSandbox",
-      "image": "docker.io/mendylanda/appflare-sandbox:0.1.8",
+      "image": "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
       "instance_type": "standard-1",
       "max_instances": 2
     },
     {
       "name": "appflare-sandbox-self-deploying-standard-2",
       "class_name": "LargeSelfDeployingSandbox",
-      "image": "docker.io/mendylanda/appflare-sandbox:0.1.8",
+      "image": "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
       "instance_type": "standard-2",
       "max_instances": 2
     }

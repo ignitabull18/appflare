@@ -70,7 +70,18 @@ export const SANDBOX_IMAGE_REPOSITORY = "docker.io/mendylanda/appflare-sandbox";
 /** Git tags and GitHub Releases of the sandbox Worker are `sandbox@<version>`. */
 export const SANDBOX_RELEASE_TAG_PREFIX = "sandbox@";
 
+/** Fork releases pin the independently built image by immutable digest. */
+const FORK_SANDBOX_IMAGES: Readonly<Record<string, string>> = {
+  "0.2.0-ignitabull.1":
+    "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
+};
+
 export function sandboxImage(version: string): string {
+  const pinned = FORK_SANDBOX_IMAGES[version];
+  if (pinned) return pinned;
+  if (version.includes("-ignitabull.")) {
+    throw new Error(`No verified container image is pinned for fork sandbox ${version}`);
+  }
   return `${SANDBOX_IMAGE_REPOSITORY}:${version}`;
 }
 

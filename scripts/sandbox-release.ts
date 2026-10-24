@@ -80,7 +80,7 @@ export function sandboxReleaseWranglerConfig(
     main: path.posix.join("..", main),
     containers: containers.map((c) => ({
       ...c,
-      image: c.image.replace(/:[^:/@]+$/, `:${version}`),
+      image: c.image.includes("@sha256:") ? c.image : c.image.replace(/:[^:/@]+$/, `:${version}`),
     })),
     vars: { ...(rest.vars as Record<string, unknown> | undefined), APPFLARE_VERSION: version },
   };

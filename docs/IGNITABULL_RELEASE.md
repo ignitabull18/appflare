@@ -10,8 +10,9 @@ production deployment, or automatic update is authorized by this document.
 Manager version: `0.6.0-ignitabull.1`; sandbox version:
 `0.2.0-ignitabull.1`. Build from a clean committed checkout with pnpm 10.34.5.
 Use `--repository ignitabull18/appflare` with `scripts/release-pack.ts` for both
-artifacts. The artifact source SHA must equal the tested fork commit. Local packs
-are unsigned review artifacts, not signed releases accepted by automatic updates.
+artifacts. The artifact source SHA must equal the tested fork commit. Unsigned packs are review artifacts. Sign final candidates with the independent
+`appflare-ignitabull-2026-10` key, then verify using the embedded public key.
+The private key stays outside the checkout and build environment.
 
 The fork's GitHub Actions remain disabled. The inherited publishing workflows
 must be adapted before enabling them: they assume upstream publishing identities.
@@ -38,8 +39,9 @@ against the upgraded database.
 Hostname trace settings and an exact staging-host rule were enabled, read back,
 disabled and restored using the Cloudflare connector. The CLI credential returns
 403 for zone tracing. A complete manager UI test using a credential with the
-necessary tracing permissions and confirmation of persisted trace ingestion
-remain outstanding. Keep tracing disabled until then.
+necessary tracing permissions and the hostname-control permission path remain outstanding. Worker trace ingestion
+was verified against real stored staging traces, and the Worker switch was
+verified in Aside and Chrome. Tracing was restored to its initial disabled state.
 
 ## Production deployment preparation
 
@@ -54,11 +56,24 @@ Preserve the installer-origin/install-source variables and production routes,
 DNS, authentication, compatibility flags, scheduled jobs and logging settings.
 
 Configure `MANAGER_RELEASES_URL` for the fork before enabling self-updates.
-Do not enable sandbox auto-install/update yet: it still depends on a trusted
-signed release and an explicitly chosen immutable container image. The current
-schema's default image repository belongs to upstream. The tested staging image
-is evidence, not a published fork image. Create a fork signing and image
-publishing process before claiming those automatic paths work.
+The fork sandbox version is pinned by digest in `packages/schema/src/sandbox.ts`.
+Its image was built from commit `1dd21d5f2c27a41696d5632f4601d99008276ab5`
+and validated in private GitHub Actions run 40128034458, then published to the
+Ignitabull Cloudflare registry. The later manager/Worker release commit adds the
+pin to that independently built image. This two-stage provenance avoids requiring
+an image to contain its own future digest. No upstream image tag is overwritten.
+Older upstream versions retain their existing image lookup; an unpinned fork
+version is refused. This image is available only in the Ignitabull account.
+
+The independent signing key has fingerprint
+`SHA256:XmdoUMaTLuZK7FthijSNcKWzQRO1y8ZhVdCzOz9X7ik`. Upstream verification
+keys are retained for catalog compatibility. The existing production manager
+does not trust the fork key yet: bootstrap requires a separately approved direct
+deployment of the reviewed candidate. Signed draft releases can be reviewed
+without activating automatic updates. Do not claim the GitHub download and
+sandbox auto-enable path works until the release is approved for publication and
+tested end to end. Keep inherited Actions disabled; they target upstream
+publishing identities.
 
 Before an approved production deployment, capture a fresh D1 Time Travel bookmark,
 active Worker version and binding/settings receipt. Deploy only the reviewed

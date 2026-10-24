@@ -196,6 +196,13 @@ describe("object keys", () => {
     }
   });
 
+  it("pins the fork image by digest and rejects unpublished fork versions", () => {
+    expect(sandboxImage("0.2.0-ignitabull.1")).toBe(
+      "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
+    );
+    expect(() => sandboxImage("0.2.0-ignitabull.2")).toThrow("No verified container image");
+  });
+
   it("tags the image with the sandbox Worker version", () => {
     expect(sandboxImage("0.1.0")).toBe("docker.io/mendylanda/appflare-sandbox:0.1.0");
   });

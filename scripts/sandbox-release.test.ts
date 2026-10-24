@@ -31,7 +31,7 @@ const VERSION = "1.2.3";
 describe("sandboxReleaseWranglerConfig", () => {
   const source = readFileSync(SANDBOX_WRANGLER_SOURCE, "utf8");
 
-  it("stamps the version into APPFLARE_VERSION and every image tag, and drops the account", () => {
+  it("stamps APPFLARE_VERSION, preserves immutable image digests, and drops the account", () => {
     const config = sandboxReleaseWranglerConfig(source, VERSION) as {
       account_id?: string;
       main: string;
@@ -42,12 +42,24 @@ describe("sandboxReleaseWranglerConfig", () => {
     expect(config.main).toBe("../src/index.ts");
     expect(config.vars.APPFLARE_VERSION).toBe(VERSION);
     expect(config.containers.map((c) => [c.class_name, c.image, c.instance_type])).toEqual([
-      ["Sandbox", `docker.io/mendylanda/appflare-sandbox:${VERSION}`, "standard-1"],
-      ["LargeSandbox", `docker.io/mendylanda/appflare-sandbox:${VERSION}`, "standard-2"],
-      ["SelfDeployingSandbox", `docker.io/mendylanda/appflare-sandbox:${VERSION}`, "standard-1"],
+      [
+        "Sandbox",
+        "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
+        "standard-1",
+      ],
+      [
+        "LargeSandbox",
+        "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
+        "standard-2",
+      ],
+      [
+        "SelfDeployingSandbox",
+        "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
+        "standard-1",
+      ],
       [
         "LargeSelfDeployingSandbox",
-        `docker.io/mendylanda/appflare-sandbox:${VERSION}`,
+        "registry.cloudflare.com/2b66aa2be0f7116c930a57acb4f0fc8e/appflare-sandbox@sha256:aa0dea42336533bbb988376e4539f68420e939e228cf181401a80efca796f64a",
         "standard-2",
       ],
     ]);
