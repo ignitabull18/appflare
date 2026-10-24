@@ -1,4 +1,4 @@
-import type { CloudflareClient, FetchLike } from "@appflare/cf-api";
+import { CloudflareApiError, type CloudflareClient, type FetchLike } from "@appflare/cf-api";
 import { SANDBOX_ENTRYPOINT, SANDBOX_WORKER_NAME, type SandboxInfo } from "@appflare/schema";
 import { settingsPlace } from "../components/settings-links";
 import { createDb } from "../db/client";
@@ -325,9 +325,26 @@ export async function changeSandboxBinding(
   if (connect) {
     const scripts = await api.workers.listScripts();
     if (!scripts.some((s) => s.id === SANDBOX_WORKER_NAME)) {
-      throw fail(
-        `There is no sandbox Worker ("${SANDBOX_WORKER_NAME}") in this account. Enable sandbox builds in ${ENABLE_SANDBOX_PLACE} first; it needs Workers Paid.`,
-      );
+      // The account-wide list can lag a successful upload even after Containers
+      // has prepared every instance. Confirm absence against the Worker itself.
+      let missing = false;
+      try {
+        await api.workers.getScriptSettings(SANDBOX_WORKER_NAME);
+      } catch (error) {
+        if (
+          !(
+            error instanceof CloudflareApiError &&
+            error.status === 404 &&
+            error.errors.some((e) => e.code === 10007)
+          )
+        )
+          throw error;
+        missing = true;
+      }
+      if (missing)
+        throw fail(
+          `There is no sandbox Worker ("${SANDBOX_WORKER_NAME}") in this account. Enable sandbox builds in ${ENABLE_SANDBOX_PLACE} first; it needs Workers Paid.`,
+        );
     }
   }
 

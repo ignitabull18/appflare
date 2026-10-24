@@ -43,6 +43,7 @@ async function connect(
   world: Partial<FakeAccount> = {},
   /** Reuse the account an earlier attempt changed. */
   existing?: ReturnType<typeof fakeAccount>,
+  staleWorkerList = false,
 ) {
   await writeSettings(createDb(env.DB), {
     [SETTING.accountId]: ACC,
@@ -65,7 +66,17 @@ async function connect(
   try {
     result = await connectSandboxCore({
       db: env.DB,
-      client: createClient({ accountId: ACC, token: TOKEN, fetch: account.fetch }),
+      client: createClient({
+        accountId: ACC,
+        token: TOKEN,
+        fetch: staleWorkerList
+          ? async (input, init) => {
+              if (new URL(input).pathname.endsWith("/workers/scripts"))
+                return Response.json({ success: true, result: [] });
+              return account.fetch(input, init);
+            }
+          : account.fetch,
+      }),
       currentVersion: VERSION,
       fetch: account.fetch,
       sleep: async (ms) => {
@@ -124,6 +135,16 @@ describe("connectSandboxCore", () => {
     expect(calls.indexOf("PATCH /workers/workers/appflare/versions/latest")).toBeLessThan(
       calls.indexOf("POST /workers/scripts/appflare/deployments"),
     );
+  });
+
+  it("connects a directly confirmed Worker omitted by a stale account list", async () => {
+    const r = await connect({}, undefined, true);
+    expect(r.error).toBeNull();
+    expect(r.result).toEqual({ alreadyConnected: false, versionId: NEW_VERSION });
+    expect(r.account.state.calls).toContain(
+      "GET /workers/scripts/appflare-sandbox/script-settings",
+    );
+    expect(r.account.state.versionPatches).toHaveLength(1);
   });
 
   it("refuses when the account has no sandbox Worker, and changes nothing", async () => {
