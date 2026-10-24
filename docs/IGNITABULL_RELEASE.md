@@ -36,12 +36,22 @@ repeats without changes, and confirms an older migrator leaves the newer schema
 and synthetic rows intact. It does not prove the complete old application works
 against the upgraded database.
 
-Hostname trace settings and an exact staging-host rule were enabled, read back,
-disabled and restored using the Cloudflare connector. The CLI credential returns
-403 for zone tracing. A complete manager UI test using a credential with the
-necessary tracing permissions and the hostname-control permission path remain outstanding. Worker trace ingestion
-was verified against real stored staging traces, and the Worker switch was
-verified in Aside and Chrome. Tracing was restored to its initial disabled state.
+Hostname tracing passed a complete staging UI test on October 24, 2026.
+An expiring account-owned token carried Workers Scripts Read, Zone Read and
+Zone Observability Write; zone permissions were limited to `ignitabull.org`.
+The account token API (`/accounts/{account_id}/tokens`) worked through the
+connector even though the user-token API and Wrangler OAuth scopes did not.
+
+Aside enabled the exact `appflare-readiness.ignitabull.org` rule at 10%, with
+zero default sampling for other hosts. Forty bounded staging requests returned
+HTTP 200. Cloudflare returned stored `cloudflare_request` traces with six
+edge-processing spans. Chrome observed the enabled switch and disabled it;
+Aside confirmed the disabled state. The original zone settings and empty rules
+were then restored, the original staging credential reinstated, and the test
+token revoked and verified absent. The production Worker version, full settings,
+bindings, custom-host DNS and wildcard DNS matched the baseline. Hostname tracing
+remains disabled after validation. Worker trace ingestion and its switches also
+passed in the preceding test round.
 
 ## Production deployment preparation
 
