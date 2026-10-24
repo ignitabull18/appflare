@@ -86,7 +86,11 @@ describe("the catalogs table", () => {
       indexUrl: DEFAULT_CATALOG_INDEX_URL,
       enabled: true,
       // The keys built into Appflare, whatever the seeded row lists.
-      keys: [{ keyId: "appflare-2026-09" }, { keyId: "catalog-2026-09" }],
+      keys: [
+        { keyId: "appflare-ignitabull-2026-10" },
+        { keyId: "appflare-2026-09" },
+        { keyId: "catalog-2026-09" },
+      ],
     });
   });
 });
