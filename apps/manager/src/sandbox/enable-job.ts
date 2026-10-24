@@ -36,7 +36,7 @@ import {
   readNamespaceState,
   sandboxScriptMetadata,
   sandboxVersionOf,
-  VERSION_NOT_READY_CODE,
+  sandboxVersionReadPending,
 } from "./deploy-plan";
 import { sandboxPreflightProblems } from "./preflight";
 import { findSandboxRelease, verifySandboxManifest } from "./release";
@@ -308,44 +308,45 @@ export async function runSandboxEnable(ctx: JobContext): Promise<void> {
     });
 
     // 7. The namespaces the container applications back.
-    const namespaces = await run("read Durable Object namespaces", async ({ log, cf }) => {
-      const api = cf();
-      const versionId =
-        uploadedVersionId ??
-        activeVersionId(await api.versions.listDeployments(SANDBOX_WORKER_NAME));
-      let bindings: unknown = [];
-      if (versionId !== null) {
-        try {
-          bindings = (await api.versions.getVersion(SANDBOX_WORKER_NAME, versionId)).resources
-            ?.bindings;
-        } catch (error) {
-          // Right after an upload the version may not be readable yet: retry the step.
-          if (
-            error instanceof CloudflareApiError &&
-            error.errors.some((e) => e.code === VERSION_NOT_READY_CODE)
-          ) {
-            throw new Error(`version ${versionId} is not readable yet (${error.message})`);
+    const namespaces = await run(
+      "read Durable Object namespaces",
+      async ({ log, cf }) => {
+        const api = cf();
+        const versionId =
+          uploadedVersionId ??
+          activeVersionId(await api.versions.listDeployments(SANDBOX_WORKER_NAME));
+        let bindings: unknown = [];
+        if (versionId !== null) {
+          try {
+            bindings = (await api.versions.getVersion(SANDBOX_WORKER_NAME, versionId)).resources
+              ?.bindings;
+          } catch (error) {
+            // Right after an upload the version may not be readable yet: retry the step.
+            if (sandboxVersionReadPending(error, uploadedVersionId !== null)) {
+              throw new Error(`version ${versionId} is not readable yet (${error.message})`);
+            }
+            throw error;
           }
-          throw error;
         }
-      }
-      let ids = containerNamespaces(bindings);
-      if (Object.values(ids).some((id) => id === null)) {
-        ids = containerNamespaces(bindings, await api.workers.listDurableObjectNamespaces());
-      }
-      const missing = Object.entries(ids).filter(([, id]) => id === null);
-      if (missing.length > 0) {
-        throw new JobError(
-          `the sandbox Worker has no Durable Object namespace for ${missing.map(([c]) => c).join(" and ")}`,
+        let ids = containerNamespaces(bindings);
+        if (Object.values(ids).some((id) => id === null)) {
+          ids = containerNamespaces(bindings, await api.workers.listDurableObjectNamespaces());
+        }
+        const missing = Object.entries(ids).filter(([, id]) => id === null);
+        if (missing.length > 0) {
+          throw new JobError(
+            `the sandbox Worker has no Durable Object namespace for ${missing.map(([c]) => c).join(" and ")}`,
+          );
+        }
+        log.info(
+          `Durable Object namespaces: ${Object.entries(ids)
+            .map(([c, id]) => `${c} ${id}`)
+            .join(", ")}.`,
         );
-      }
-      log.info(
-        `Durable Object namespaces: ${Object.entries(ids)
-          .map(([c, id]) => `${c} ${id}`)
-          .join(", ")}.`,
-      );
-      return { ids: ids as Record<string, string> };
-    });
+        return { ids: ids as Record<string, string> };
+      },
+      { retries: { limit: 5, delay: "2 seconds", backoff: "exponential" } },
+    );
 
     // 8. The container applications.
     // As wrangler: container logs on when the Worker's observability or its logs are.

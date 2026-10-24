@@ -45,6 +45,19 @@ import {
 /** Cloudflare's code while a new version's bindings are not readable yet. */
 export const VERSION_NOT_READY_CODE = 100146;
 
+/** A newly uploaded Worker can briefly return 10007 before its version is
+ * readable. Only retry that absence after this job actually uploaded it. */
+export function sandboxVersionReadPending(
+  error: unknown,
+  justUploaded: boolean,
+): error is CloudflareApiError {
+  return (
+    error instanceof CloudflareApiError &&
+    (error.errors.some((e) => e.code === VERSION_NOT_READY_CODE) ||
+      (justUploaded && error.status === 404 && error.errors.some((e) => e.code === 10007)))
+  );
+}
+
 /** The Durable Object migrations to upload, given the Worker's current tag (wrangler's rule). */
 export function migrationsToUpload(
   migrations: ArtifactManifest["worker"]["migrations"],

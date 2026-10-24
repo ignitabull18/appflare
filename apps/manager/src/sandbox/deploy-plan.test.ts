@@ -14,6 +14,7 @@ import {
   runsConfiguration,
   sandboxScriptMetadata,
   sandboxVersionOf,
+  sandboxVersionReadPending,
 } from "./deploy-plan";
 import { sandboxPreflightProblems } from "./preflight";
 
@@ -311,5 +312,25 @@ describe("sandboxPreflightProblems", () => {
         { containersOnly: true },
       ),
     ).toEqual([]);
+  });
+});
+
+describe("sandbox version propagation after upload", () => {
+  const refused = (status: number, code: number) =>
+    new CloudflareApiError({
+      status,
+      errors: [{ code, message: "not readable" }],
+      method: "GET",
+      path: "/workers/scripts/sandbox/versions/new-version",
+    });
+  it("retries the observed fresh-upload 404 without hiding an already-existing missing Worker", () => {
+    expect(sandboxVersionReadPending(refused(404, 10007), true)).toBe(true);
+    expect(sandboxVersionReadPending(refused(404, 10007), false)).toBe(false);
+    expect(sandboxVersionReadPending(refused(400, 100146), false)).toBe(true);
+  });
+  it("does not retry permission refusals, unrelated 404s or arbitrary failures as propagation", () => {
+    expect(sandboxVersionReadPending(refused(403, 10000), true)).toBe(false);
+    expect(sandboxVersionReadPending(refused(404, 9999), true)).toBe(false);
+    expect(sandboxVersionReadPending(new Error("other failure"), true)).toBe(false);
   });
 });
