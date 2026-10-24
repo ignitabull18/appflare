@@ -2,12 +2,12 @@
 
 This fork is maintained at `ignitabull18/appflare`, branch
 `fix/cloudflare-readiness-and-recovery`. Production deployment requires Jeremy's
-approval after the candidate and its checks have been reviewed. No release,
-production deployment, or automatic update is authorized by this document.
+approval after the candidate and its checks have been reviewed. Publication and staging checks were authorized separately by Jeremy.
+Production deployment and automatic updates still need his approval.
 
 ## Candidate artifacts
 
-Manager version: `0.6.0-ignitabull.1`; sandbox version:
+Manager version: `0.6.0-ignitabull.2`; sandbox version:
 `0.2.0-ignitabull.1`. Build from a clean committed checkout with pnpm 10.34.5.
 Use `--repository ignitabull18/appflare` with `scripts/release-pack.ts` for both
 artifacts. The artifact source SHA must equal the tested fork commit. Unsigned packs are review artifacts. Sign final candidates with the independent
@@ -79,10 +79,24 @@ The independent signing key has fingerprint
 `SHA256:XmdoUMaTLuZK7FthijSNcKWzQRO1y8ZhVdCzOz9X7ik`. Upstream verification
 keys are retained for catalog compatibility. The existing production manager
 does not trust the fork key yet: bootstrap requires a separately approved direct
-deployment of the reviewed candidate. Signed draft releases can be reviewed
-without activating automatic updates. Do not claim the GitHub download and
-sandbox auto-enable path works until the release is approved for publication and
-tested end to end. Keep inherited Actions disabled; they target upstream
+deployment of the reviewed candidate. The signed sandbox and initial manager releases were published as prereleases,
+and all six anonymous GitHub asset downloads passed integrity and signature checks.
+Manager .2 corrects the waiting Workflow binding handoff through SELF RPC, and
+adds bounded retries for fresh Worker version visibility (10007/100146) and
+Containers namespace propagation (1606 DURABLE_OBJECT_NOT_FOUND). Only a
+successful upload in the same job permits the new absence retries. Permission
+and unrelated validation failures remain terminal. Manager .2 is published as a signed prerelease from commit
+`2d40551f5f5a8124601dd893d53c78a68b6e34b6`. Anonymous GitHub downloads and
+the final cold setup plus original waiting repository build passed in staging.
+Both Workflows completed; Chrome and Aside showed Ready to install. The final
+source passes 5,152 manager tests across 441 files and manager typechecking.
+When deployment lookup reports 10007 while the binding answers, settlement
+requires repeated live version answers; a missing/unversioned binding cannot
+supply that proof. Staging used one instance per class; published defaults stay
+2/1/2/2. A complete corrected seven-instance cold rollout remains unverified
+because an earlier spare instance stayed starting for ten minutes. All disposable
+auto-test resources and review files were removed, the original staging service
+binding and zero container caps were restored, and production stayed unchanged. Keep inherited Actions disabled; they target upstream
 publishing identities.
 
 Before an approved production deployment, capture a fresh D1 Time Travel bookmark,
