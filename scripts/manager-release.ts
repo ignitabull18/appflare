@@ -58,7 +58,7 @@ export function isReleaseVersion(version: string): boolean {
  */
 export function stampCatalogManifest(
   jsoncText: string,
-  release: { version: string; sha: string },
+  release: { version: string; sha: string; repository?: string },
 ): Record<string, unknown> {
   if (!isReleaseVersion(release.version)) {
     throw new Error(`"${release.version}" is not a release version (semver without a leading v)`);
@@ -70,7 +70,14 @@ export function stampCatalogManifest(
   if (typeof parsed !== "object" || parsed === null || typeof parsed.source !== "object") {
     throw new Error("the catalog manifest has no source block");
   }
-  return { ...parsed, source: { ref: release.version, sha: release.sha } };
+  const repository = release.repository ?? parsed.repo;
+  if (
+    typeof repository !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(repository)
+  ) {
+    throw new Error("repository must be a GitHub owner/repo name");
+  }
+  return { ...parsed, repo: repository, source: { ref: release.version, sha: release.sha } };
 }
 
 /** Names of every entry in a zip's central directory (classic, non-ZIP64). */
@@ -120,6 +127,7 @@ export function accountSpecificIds(wranglerJsoncText: string): string[] {
 }
 
 export interface ManagerArtifactExpectations {
+  repository?: string;
   version: string;
   sha: string;
   /** `manifest.keyId`: the release key id, or "unsigned" for a local build. */
@@ -184,8 +192,8 @@ export function managerArtifactProblems(
     `keyId is "${manifest.keyId}", expected "${expected.keyId}"`,
   );
   expect(
-    manifest.catalog.repo === "appflare/appflare",
-    `catalog.repo is "${manifest.catalog.repo}", expected "appflare/appflare"`,
+    manifest.catalog.repo === (expected.repository ?? "appflare/appflare"),
+    `catalog.repo is "${manifest.catalog.repo}", expected "${expected.repository ?? "appflare/appflare"}"`,
   );
   expect(
     same(manifest.catalog.source, { ref: expected.version, sha: expected.sha }),

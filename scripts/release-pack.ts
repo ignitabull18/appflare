@@ -44,7 +44,7 @@ import { parseArgs } from "node:util";
  */
 
 const USAGE =
-  "usage: APPFLARE_VERSION=<version> pnpm release:pack --out <dir> [--key-id <id>] [--app manager|sandbox]\n";
+  "usage: APPFLARE_VERSION=<version> pnpm release:pack --out <dir> [--key-id <id>] [--app manager|sandbox] [--repository owner/repo]\n";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PACK_BIN = path.join(ROOT, "packages", "pack", "bin", "appflare-pack.js");
@@ -106,9 +106,10 @@ async function packSandbox(options: {
   keyId: string | undefined;
   sha: string;
   version: string;
+  repository: string;
   env: NodeJS.ProcessEnv;
 }): Promise<void> {
-  const { outDir, keyId, sha, version, env } = options;
+  const { outDir, keyId, sha, version, repository, env } = options;
   const release = await import("./manager-release.ts");
   const sandbox = await import("./sandbox-release.ts");
   mkdirSync(path.dirname(sandbox.SANDBOX_RELEASE_WRANGLER), { recursive: true });
@@ -122,7 +123,7 @@ async function packSandbox(options: {
     const manifestPath = path.join(tmp, "appflare.json");
     const catalog = release.stampCatalogManifest(
       readFileSync(sandbox.SANDBOX_CATALOG_MANIFEST, "utf8"),
-      { version, sha },
+      { version, sha, repository },
     );
     writeFileSync(manifestPath, `${JSON.stringify(catalog, null, 2)}\n`);
     run(
@@ -148,6 +149,7 @@ async function packSandbox(options: {
     version,
     sha,
     keyId: keyId ?? "unsigned",
+    repository,
   });
   if (problems.length > 0) {
     throw new Error(`the packed sandbox Worker artifact is wrong:\n  - ${problems.join("\n  - ")}`);
@@ -163,6 +165,7 @@ async function main(argv: string[]): Promise<number> {
       out: { type: "string" },
       "key-id": { type: "string" },
       app: { type: "string", default: "manager" },
+      repository: { type: "string", default: "appflare/appflare" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -174,6 +177,9 @@ async function main(argv: string[]): Promise<number> {
     process.stderr.write(`error: --out is required\n${USAGE}`);
     return 1;
   }
+  const repository = values.repository;
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(repository))
+    throw new Error("repository must be a GitHub owner/repo name");
   const app = values.app;
   if (app !== "manager" && app !== "sandbox") {
     process.stderr.write(`error: --app must be manager or sandbox, not "${app}"\n${USAGE}`);
@@ -206,7 +212,7 @@ async function main(argv: string[]): Promise<number> {
     return 1;
   }
   if (app === "sandbox") {
-    await packSandbox({ outDir, keyId, sha, version, env });
+    await packSandbox({ outDir, keyId, sha, version, repository, env });
     return 0;
   }
   // Not through turbo: turbo passes only declared env vars to tasks and would
@@ -230,7 +236,7 @@ async function main(argv: string[]): Promise<number> {
     const manifestPath = path.join(tmp, "appflare.json");
     const catalog = release.stampCatalogManifest(
       readFileSync(release.MANAGER_CATALOG_MANIFEST, "utf8"),
-      { version, sha },
+      { version, sha, repository },
     );
     writeFileSync(manifestPath, `${JSON.stringify(catalog, null, 2)}\n`);
     run(
@@ -258,6 +264,7 @@ async function main(argv: string[]): Promise<number> {
     version,
     sha,
     keyId: keyId ?? "unsigned",
+    repository,
   });
   if (problems.length > 0) {
     throw new Error(`the packed manager artifact is wrong:\n  - ${problems.join("\n  - ")}`);

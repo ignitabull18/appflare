@@ -1,6 +1,6 @@
 {
   "name": "@appflare/sandbox-worker",
-  "version": "0.1.7",
+  "version": "0.2.0-ignitabull.1",
   "private": true,
   "type": "module",
   "scripts": {

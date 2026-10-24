@@ -23,6 +23,26 @@ import {
 const FAKE_SHA = "0123456789abcdef0123456789abcdef01234567";
 
 describe("stampCatalogManifest", () => {
+  it("records the fork repository and refuses URLs instead of owner/repo names", () => {
+    const text = readFileSync(MANAGER_CATALOG_MANIFEST, "utf8");
+    expect(
+      stampCatalogManifest(text, {
+        version: "0.6.0-ignitabull.1",
+        sha: FAKE_SHA,
+        repository: "ignitabull18/appflare",
+      }),
+    ).toMatchObject({
+      repo: "ignitabull18/appflare",
+      source: { ref: "0.6.0-ignitabull.1", sha: FAKE_SHA },
+    });
+    expect(() =>
+      stampCatalogManifest(text, {
+        version: "0.6.0",
+        sha: FAKE_SHA,
+        repository: "https://github.com/ignitabull18/appflare",
+      }),
+    ).toThrow("owner/repo");
+  });
   const text = readFileSync(MANAGER_CATALOG_MANIFEST, "utf8");
 
   it("replaces the placeholder source with the release version and commit", () => {

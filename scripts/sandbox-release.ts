@@ -87,6 +87,7 @@ export function sandboxReleaseWranglerConfig(
 }
 
 export interface SandboxArtifactExpectations {
+  repository?: string;
   version: string;
   sha: string;
   keyId: string;
@@ -127,8 +128,8 @@ export function sandboxArtifactProblems(
     `keyId is "${manifest.keyId}", expected "${expected.keyId}"`,
   );
   expect(
-    manifest.catalog.repo === "appflare/appflare",
-    `catalog.repo is "${manifest.catalog.repo}", expected "appflare/appflare"`,
+    manifest.catalog.repo === (expected.repository ?? "appflare/appflare"),
+    `catalog.repo is "${manifest.catalog.repo}", expected "${expected.repository ?? "appflare/appflare"}"`,
   );
   expect(
     same(manifest.catalog.source, { ref: expected.version, sha: expected.sha }),
