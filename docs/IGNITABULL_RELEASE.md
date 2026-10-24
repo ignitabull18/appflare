@@ -92,9 +92,13 @@ Both Workflows completed; Chrome and Aside showed Ready to install. The final
 source passes 5,152 manager tests across 441 files and manager typechecking.
 When deployment lookup reports 10007 while the binding answers, settlement
 requires repeated live version answers; a missing/unversioned binding cannot
-supply that proof. Staging used one instance per class; published defaults stay
-2/1/2/2. A complete corrected seven-instance cold rollout remains unverified
-because an earlier spare instance stayed starting for ten minutes. All disposable
+supply that proof. The follow-up full-capacity cold rollout passed on October 24,
+2026 with the published 2/1/2/2 limits unchanged. All seven instances were healthy;
+automatic setup and the original waiting repository build both completed without
+a restart. Chrome and Aside showed Ready to install with the expected commit and
+image. No executable changes were needed. This closes the cold-rollout gate;
+it does not constitute a seven-concurrent-workload stress test. The earlier spare
+instance delay remains recorded in the test history. All disposable
 auto-test resources and review files were removed, the original staging service
 binding and zero container caps were restored, and production stayed unchanged. Keep inherited Actions disabled; they target upstream
 publishing identities.
