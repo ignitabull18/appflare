@@ -33,12 +33,16 @@ function manifestBytes(keyId: string): Uint8Array {
 }
 
 describe("signingKeys", () => {
-  it("embeds the manager and catalog key ids, sharing one 32-byte public key", () => {
-    expect(signingKeys.map((k) => k.keyId)).toEqual(["appflare-2026-09", "catalog-2026-09"]);
+  it("embeds independent fork signing trust and preserves upstream catalog trust", () => {
+    expect(signingKeys.map((k) => k.keyId)).toEqual([
+      "appflare-ignitabull-2026-10",
+      "appflare-2026-09",
+      "catalog-2026-09",
+    ]);
     for (const key of signingKeys) {
       expect(decodePublicKey(key)).toHaveLength(32);
     }
-    expect(new Set(signingKeys.map((k) => k.publicKeyBase64)).size).toBe(1);
+    expect(new Set(signingKeys.map((k) => k.publicKeyBase64)).size).toBe(2);
   });
 
   it("has unique key ids and never trusts the unsigned id", () => {

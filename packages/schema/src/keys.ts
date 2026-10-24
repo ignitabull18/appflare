@@ -6,8 +6,8 @@
  * retired one until every live artifact has been re-signed or expired, then drop
  * the old entry.
  *
- * The matching private keys live ONLY in the `appflare` GitHub org's Actions
- * secrets. Generate a new pair with `pnpm --filter @appflare/schema keygen`.
+ * Upstream private keys belong to the upstream organization. The independent
+ * Ignitabull private key is held outside the checkout and is never shipped.
  *
  * {@link verifyManifestSignature} below is the runtime verifier the manager and
  * the CLI use. `@appflare/pack`'s `verify` (packages/pack/src/verify.ts) keeps its
@@ -39,6 +39,10 @@ const PUBLIC_KEY_2026_09 = "HYmxJhxMa0jtF1nDO7yuDXxjVSm+ph6NnrXABpoDqG8=";
 
 /** Trusted artifact signing keys, selected by `manifest.keyId`. */
 export const signingKeys: readonly SigningKey[] = [
+  {
+    keyId: "appflare-ignitabull-2026-10",
+    publicKeyBase64: "xlxlyHNKV1xiYtfVfXIQkwFNgefWD/+m56hfeHSx33w=",
+  },
   // Manager releases: `manager@<version>` on appflare/appflare (docs/RELEASING.md).
   { keyId: "appflare-2026-09", publicKeyBase64: PUBLIC_KEY_2026_09 },
   // Catalog app releases: `<slug>@<version>` on appflare/catalog.
