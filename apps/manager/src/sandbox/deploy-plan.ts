@@ -58,6 +58,20 @@ export function sandboxVersionReadPending(
   );
 }
 
+/** Containers may not see a namespace that the Worker API has just created.
+ * Retry only that exact create refusal after this job uploaded the Worker. */
+export function sandboxNamespacePending(
+  error: unknown,
+  justUploaded: boolean,
+): error is CloudflareApiError {
+  return (
+    justUploaded &&
+    error instanceof CloudflareApiError &&
+    error.status === 400 &&
+    error.errors.some((e) => e.code === 1606 && e.message.includes('"DURABLE_OBJECT_NOT_FOUND"'))
+  );
+}
+
 /** The Durable Object migrations to upload, given the Worker's current tag (wrangler's rule). */
 export function migrationsToUpload(
   migrations: ArtifactManifest["worker"]["migrations"],

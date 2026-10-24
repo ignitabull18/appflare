@@ -34,6 +34,7 @@ import {
   containerNamespaces,
   isSandboxWorker,
   readNamespaceState,
+  sandboxNamespacePending,
   sandboxScriptMetadata,
   sandboxVersionOf,
   sandboxVersionReadPending,
@@ -357,85 +358,98 @@ export async function runSandboxEnable(ctx: JobContext): Promise<void> {
     const logs = observability?.enabled === true || observability?.logs?.enabled === true;
     let waits: ContainerWait[] = [];
     for (const container of SANDBOX_CONTAINERS) {
-      const wait = await run(`container application ${container.name}`, async ({ log, cf }) => {
-        const api = cf();
-        const namespaceId = namespaces.ids[container.class_name];
-        if (namespaceId === undefined)
-          throw new JobError(`no namespace for ${container.class_name}`);
-        const existing =
-          (await api.containers.listApplications({ name: container.name })).find(
-            (a) => a.name === container.name,
-          ) ?? null;
-        let active = null;
-        if (existing?.active_rollout_id !== undefined) {
-          try {
-            active = await api.containers.getRollout(existing.id, existing.active_rollout_id);
-          } catch (error) {
-            if (!isNotFound(error)) throw error;
-          }
-        }
-        let change = containerChange(container, version, namespaceId, logs, existing, active);
-        if (change.kind === "conflict" && existing !== null) {
-          // Left behind by a sandbox Worker that was deleted: nobody's any more.
-          const read = await readNamespaceState(api, change.boundTo);
-          if (read.state === "exists") throw new JobError(change.message);
-          if (read.state === "unknown") {
-            // Neither found nor gone: nothing is deleted on a guess, and the
-            // step tries again, as a passing failure may answer next time.
-            throw new Error(
-              `Cloudflare did not confirm that the Durable Object namespace ${change.boundTo} of the container application ${container.name} is gone: ${read.answer}`,
-            );
-          }
-          try {
-            await api.containers.deleteApplication(existing.id);
-          } catch (error) {
-            if (!isNotFound(error)) throw error;
-          }
-          log.info(
-            `Deleted the container application ${container.name}: it backed a Durable Object namespace that no longer exists (${change.boundTo}), left behind by an earlier sandbox Worker.`,
-          );
-          change = containerChange(container, version, namespaceId, logs, null);
-        }
-        const base = { name: container.name, maxInstances: container.max_instances };
-        switch (change.kind) {
-          case "conflict":
-            throw new JobError(change.message);
-          case "create": {
-            const app = await api.containers.createApplication(change.body);
-            log.info(
-              `Created the container application ${container.name} (${container.instance_type}, up to ${container.max_instances} instance(s)). Cloudflare prepares its instances now; none runs until a build starts one.`,
-            );
-            return { ...base, id: app.id, rolloutId: null };
-          }
-          case "none":
-          case "patch": {
-            const id = (existing as NonNullable<typeof existing>).id;
-            if (change.kind === "patch") {
-              await api.containers.modifyApplication(id, change.modify);
-              log.info(
-                `The container application ${container.name} runs this release; its instance limit is now ${container.max_instances}.`,
-              );
-            } else {
-              log.info(`The container application ${container.name} already runs this release.`);
+      const wait = await run(
+        `container application ${container.name}`,
+        async ({ log, cf }) => {
+          const api = cf();
+          const namespaceId = namespaces.ids[container.class_name];
+          if (namespaceId === undefined)
+            throw new JobError(`no namespace for ${container.class_name}`);
+          const existing =
+            (await api.containers.listApplications({ name: container.name })).find(
+              (a) => a.name === container.name,
+            ) ?? null;
+          let active = null;
+          if (existing?.active_rollout_id !== undefined) {
+            try {
+              active = await api.containers.getRollout(existing.id, existing.active_rollout_id);
+            } catch (error) {
+              if (!isNotFound(error)) throw error;
             }
-            return { ...base, id, rolloutId: null };
           }
-          case "wait-rollout": {
-            const id = (existing as NonNullable<typeof existing>).id;
-            log.info(`The container application ${container.name} is already rolling out to it.`);
-            return { ...base, id, rolloutId: change.rolloutId };
-          }
-          case "rollout": {
-            const id = (existing as NonNullable<typeof existing>).id;
-            await api.containers.modifyApplication(id, change.modify);
-            const rollout = await api.containers.createRollout(id, change.rollout);
+          let change = containerChange(container, version, namespaceId, logs, existing, active);
+          if (change.kind === "conflict" && existing !== null) {
+            // Left behind by a sandbox Worker that was deleted: nobody's any more.
+            const read = await readNamespaceState(api, change.boundTo);
+            if (read.state === "exists") throw new JobError(change.message);
+            if (read.state === "unknown") {
+              // Neither found nor gone: nothing is deleted on a guess, and the
+              // step tries again, as a passing failure may answer next time.
+              throw new Error(
+                `Cloudflare did not confirm that the Durable Object namespace ${change.boundTo} of the container application ${container.name} is gone: ${read.answer}`,
+              );
+            }
+            try {
+              await api.containers.deleteApplication(existing.id);
+            } catch (error) {
+              if (!isNotFound(error)) throw error;
+            }
             log.info(
-              `Rolling out ${container.name} to ${sandboxImage(version)} (rollout ${rollout.id}).`,
+              `Deleted the container application ${container.name}: it backed a Durable Object namespace that no longer exists (${change.boundTo}), left behind by an earlier sandbox Worker.`,
             );
-            return { ...base, id, rolloutId: rollout.id };
+            change = containerChange(container, version, namespaceId, logs, null);
           }
-        }
-      });
+          const base = { name: container.name, maxInstances: container.max_instances };
+          switch (change.kind) {
+            case "conflict":
+              throw new JobError(change.message);
+            case "create": {
+              const app = await api.containers
+                .createApplication(change.body)
+                .catch((error: unknown) => {
+                  if (sandboxNamespacePending(error, uploadedVersionId !== null)) {
+                    throw new Error(
+                      `Cloudflare Containers cannot see the new namespace ${namespaceId} yet (${error.message})`,
+                    );
+                  }
+                  throw error;
+                });
+              log.info(
+                `Created the container application ${container.name} (${container.instance_type}, up to ${container.max_instances} instance(s)). Cloudflare prepares its instances now; none runs until a build starts one.`,
+              );
+              return { ...base, id: app.id, rolloutId: null };
+            }
+            case "none":
+            case "patch": {
+              const id = (existing as NonNullable<typeof existing>).id;
+              if (change.kind === "patch") {
+                await api.containers.modifyApplication(id, change.modify);
+                log.info(
+                  `The container application ${container.name} runs this release; its instance limit is now ${container.max_instances}.`,
+                );
+              } else {
+                log.info(`The container application ${container.name} already runs this release.`);
+              }
+              return { ...base, id, rolloutId: null };
+            }
+            case "wait-rollout": {
+              const id = (existing as NonNullable<typeof existing>).id;
+              log.info(`The container application ${container.name} is already rolling out to it.`);
+              return { ...base, id, rolloutId: change.rolloutId };
+            }
+            case "rollout": {
+              const id = (existing as NonNullable<typeof existing>).id;
+              await api.containers.modifyApplication(id, change.modify);
+              const rollout = await api.containers.createRollout(id, change.rollout);
+              log.info(
+                `Rolling out ${container.name} to ${sandboxImage(version)} (rollout ${rollout.id}).`,
+              );
+              return { ...base, id, rolloutId: rollout.id };
+            }
+          }
+        },
+        { retries: { limit: 5, delay: "2 seconds", backoff: "exponential" } },
+      );
       waits.push(wait);
     }
 

@@ -12,6 +12,7 @@ import {
   orphanedNamespace,
   rolloutSteps,
   runsConfiguration,
+  sandboxNamespacePending,
   sandboxScriptMetadata,
   sandboxVersionOf,
   sandboxVersionReadPending,
@@ -332,5 +333,25 @@ describe("sandbox version propagation after upload", () => {
     expect(sandboxVersionReadPending(refused(403, 10000), true)).toBe(false);
     expect(sandboxVersionReadPending(refused(404, 9999), true)).toBe(false);
     expect(sandboxVersionReadPending(new Error("other failure"), true)).toBe(false);
+  });
+});
+
+describe("sandbox namespace propagation to Containers", () => {
+  const refused = (status = 400, code = 1606, message = '{"error":"DURABLE_OBJECT_NOT_FOUND"}') =>
+    new CloudflareApiError({
+      status,
+      errors: [{ code, message }],
+      method: "POST",
+      path: "/containers/applications",
+    });
+  it("retries the observed namespace refusal only after a successful Worker upload", () => {
+    expect(sandboxNamespacePending(refused(), true)).toBe(true);
+    expect(sandboxNamespacePending(refused(), false)).toBe(false);
+  });
+  it("does not hide permission, validation or arbitrary errors", () => {
+    expect(sandboxNamespacePending(refused(403), true)).toBe(false);
+    expect(sandboxNamespacePending(refused(400, 1606, "invalid image"), true)).toBe(false);
+    expect(sandboxNamespacePending(refused(400, 9999), true)).toBe(false);
+    expect(sandboxNamespacePending(new Error("DURABLE_OBJECT_NOT_FOUND"), true)).toBe(false);
   });
 });
