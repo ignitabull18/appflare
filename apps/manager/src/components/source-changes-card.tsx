@@ -1,4 +1,4 @@
-import { Banner, Button, LayerDialog, Link, Text } from "@cloudflare/kumo";
+import { Banner, Button, Input, LayerDialog, Link, Text } from "@cloudflare/kumo";
 import { ArrowsClockwiseIcon, GitBranchIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { type FormEvent, useId, useState } from "react";
 import type { InstallDetail } from "../installs/installs.functions";
@@ -133,6 +133,7 @@ function RebuildDialog({
   const formId = useId();
   const [open, setOpen] = useState(false);
   const [costConfirmed, setCostConfirmed] = useState(false);
+  const [containerImage, setContainerImage] = useState(install.containerRuntime?.image ?? "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,6 +141,7 @@ function RebuildDialog({
     setOpen(next);
     if (next) {
       setCostConfirmed(false);
+      setContainerImage(install.containerRuntime?.image ?? "");
       setError(null);
     }
   }
@@ -151,7 +153,14 @@ function RebuildDialog({
     setError(null);
     try {
       const { jobId } = await startSourceBuild({
-        data: { kind: "rebuild", installId: install.id, costConfirmed },
+        data: {
+          kind: "rebuild",
+          installId: install.id,
+          costConfirmed,
+          ...(install.containerRuntime && containerImage.trim() !== install.containerRuntime.image
+            ? { containerImage: containerImage.trim() }
+            : {}),
+        },
       });
       await jobStarted(jobId, "Rebuild started");
     } catch (err) {
@@ -183,6 +192,15 @@ function RebuildDialog({
         </LayerDialog.Description>
         <LayerDialog.Body>
           <form id={formId} className="grid gap-5" onSubmit={onSubmit}>
+            {install.containerRuntime && (
+              <Input
+                label="Published container image"
+                value={containerImage}
+                onChange={(e) => setContainerImage(e.currentTarget.value)}
+                disabled={pending}
+                description="Choose the image to build for review. A repository descriptor takes precedence. The running app changes only after you review and update."
+              />
+            )}
             <SourceBuildCostConfirmation
               checked={costConfirmed}
               onChange={setCostConfirmed}

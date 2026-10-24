@@ -1,4 +1,8 @@
-import { buildCommandChoiceSchema, MAX_CONNECTION_STRING_LENGTH } from "@appflare/schema";
+import {
+  buildCommandChoiceSchema,
+  containerImportSchema,
+  MAX_CONNECTION_STRING_LENGTH,
+} from "@appflare/schema";
 import { z } from "zod";
 import { startInstallInput } from "./install-input";
 
@@ -13,6 +17,7 @@ export const startSourceBuildInput = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("repository"),
     /** A GitHub URL or `owner/repo`, as typed. */
+    container: containerImportSchema.optional(),
     repository: z.string().trim().min(1, "Enter a repository.").max(400),
     ref: refInput,
     buildCommand: buildCommandChoiceSchema.optional(),
@@ -27,6 +32,7 @@ export const startSourceBuildInput = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("rebuild"),
+    containerImage: containerImportSchema.shape.image.optional(),
     installId: z.string().min(1).max(64),
     costConfirmed: z.boolean(),
   }),

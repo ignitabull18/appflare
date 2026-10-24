@@ -99,6 +99,7 @@ export function managerMetadata(manifest: ArtifactManifest, r: UploadResources):
 /** Module part content types, as wrangler 4.136.2's `moduleTypeMimeType`. */
 const MODULE_CONTENT_TYPE: Record<ModuleType, string> = {
   esm: "application/javascript+module",
+  "source-map": "application/source-map",
   commonjs: "application/javascript",
   "compiled-wasm": "application/wasm",
   text: "text/plain",

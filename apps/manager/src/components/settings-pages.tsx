@@ -20,12 +20,15 @@ import type { Viewer } from "../server/session.functions";
 import type { TokenStatus } from "../server/token.functions";
 import type { UserRow } from "../server/users.functions";
 import type { TelemetryStatus } from "../telemetry/telemetry";
+import { DiagnosticsCard } from "../usage/diagnostics-card";
 import type { SpendProtectionData } from "../usage/spend-defaults.functions";
 import { SpendProtectionSection } from "../usage/ui/spend-protection-section";
 import { AccessCard } from "./access-card";
 import { AppflareUpdatesCard } from "./appflare-updates-card";
 import { CatalogsList } from "./catalogs-settings";
 import { CloudflareTokenCard } from "./cloudflare-token-card";
+import { ContainerImportsCard } from "./container-imports-card";
+import { D1RecoveryCard } from "./d1-recovery-card";
 import { DocsLink } from "./docs-link";
 import { GatewayCard } from "./gateway-card";
 import { GithubAccessCard } from "./github-access-card";
@@ -125,6 +128,7 @@ export function AccountSettingsView({
         startOpen={reconnectOpen}
       />
       <CapabilitiesSection data={capabilities} isAdmin={isAdmin} />
+      {isAdmin && <DiagnosticsCard />}
       <SpendProtectionSection data={spend} isAdmin={isAdmin} />
       {viewer.isOwner && danger !== null && <DangerZone state={danger} />}
     </>
@@ -150,6 +154,7 @@ export function BuildingSettingsView({
       <SettingsPageHeader page="building" />
       <SandboxCard status={sandboxStatus} capabilities={capabilities} isAdmin={isAdmin} />
       <GithubAccessCard isAdmin={isAdmin} />
+      {isAdmin && <ContainerImportsCard />}
     </>
   );
 }
@@ -303,6 +308,7 @@ export function RemovedAppsSettingsView({
     <>
       <SettingsPageHeader page="removedApps" docs="removedApps" />
       <RemovedAppsSection rows={rows} isAdmin={isAdmin} />
+      {isAdmin && <D1RecoveryCard />}
     </>
   );
 }

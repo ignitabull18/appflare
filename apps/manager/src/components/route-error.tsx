@@ -2,6 +2,7 @@ import { Banner } from "@cloudflare/kumo";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { ACCESS_DENIED_MESSAGE, isAccessDenied } from "../access/denied";
+import { ServerFunctionResponseError } from "../server-function-fetch";
 import { isStaleBuildError } from "../stale-build";
 import { BANNER_ICON, MessageText } from "./message-text";
 
@@ -17,11 +18,14 @@ export const STALE_BUILD_MESSAGE =
  * has already reloaded once for it.
  */
 export function RouteError({ error }: ErrorComponentProps) {
-  const reloadable = isAccessDenied(error)
-    ? ACCESS_DENIED_MESSAGE
-    : isStaleBuildError(error)
-      ? STALE_BUILD_MESSAGE
-      : null;
+  const reloadable =
+    error instanceof ServerFunctionResponseError
+      ? error.message
+      : isAccessDenied(error)
+        ? ACCESS_DENIED_MESSAGE
+        : isStaleBuildError(error)
+          ? STALE_BUILD_MESSAGE
+          : null;
   if (reloadable !== null) {
     return (
       <div className="mx-auto max-w-2xl px-6 py-10">

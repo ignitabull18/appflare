@@ -21,6 +21,6 @@
     "@cloudflare/vitest-pool-workers": "0.22.0",
     "drizzle-kit": "0.31.11",
     "vitest": "4.1.11",
-    "wrangler": "4.136.2"
+    "wrangler": "4.152.0"
   }
 }

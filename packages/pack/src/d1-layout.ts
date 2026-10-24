@@ -8,6 +8,7 @@ import {
   migrationsGlobBase,
   schemaFileProblems,
 } from "@appflare/schema";
+import { minimatch } from "minimatch";
 import type { ResolvedWranglerConfig } from "./wrangler-config.ts";
 
 /**
@@ -73,13 +74,9 @@ function normalizeRelativePath(p: string): string {
 
 /** A glob match with minimatch's rules (dot files never match), as wrangler matches. */
 function matchesGlob(file: string, pattern: string): boolean {
-  // Node's `path.matchesGlob` is minimatch with `dot: false`, the options
-  // wrangler passes; it exists from Node.js 22.5.
-  const posix: Partial<Pick<typeof path.posix, "matchesGlob">> = path.posix;
-  if (posix.matchesGlob === undefined) {
-    throw new Error("reading D1 migrations needs Node.js 22.5 or newer (path.matchesGlob)");
-  }
-  return posix.matchesGlob(file, pattern);
+  // Wrangler uses case-sensitive minimatch on every platform. Node's
+  // path.matchesGlob enables case folding on macOS even through path.posix.
+  return minimatch(file, pattern, { dot: false, nocase: false });
 }
 
 /**

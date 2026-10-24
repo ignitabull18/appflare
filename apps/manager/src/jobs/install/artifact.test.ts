@@ -26,7 +26,7 @@ describe("verifyArtifactManifest", () => {
     expect(manifest.catalog.secrets[0]?.name).toBe("ADMIN_PASSWORD");
   });
 
-  it("reads format 1, D1 SQL grouped by binding, and asks to update Appflare for a later format", async () => {
+  it("reads format 7, D1 SQL grouped by binding, and asks to update Appflare for a later format", async () => {
     const d1 = await buildArtifactFixture({
       bindings: [{ type: "d1", name: "DB" }],
       d1: { DB: [{ name: "0001_init.sql", content: "CREATE TABLE t (id);" }] },
@@ -38,7 +38,7 @@ describe("verifyArtifactManifest", () => {
       expected(d1),
       d1.keys,
     );
-    expect(manifest.format).toBe(1);
+    expect(manifest.format).toBe(7);
     expect(manifest.d1.DB?.migrations.map((f) => f.name)).toEqual(["0001_init.sql"]);
     expect(manifest.d1.DB?.schema.map((f) => f.name)).toEqual(["schema.sql"]);
     expect(manifest.d1.DB?.postDeploy).toEqual([]);
@@ -69,13 +69,13 @@ describe("verifyArtifactManifest", () => {
 
     const future = await buildArtifactFixture({
       tweak: (m) => {
-        (m as { format: number }).format = 7;
+        (m as { format: number }).format = 8;
       },
     });
     await expect(
       verifyArtifactManifest(future.manifestBytes, future.signature, expected(future), future.keys),
     ).rejects.toThrow(
-      "the artifact is format 7, and this version of Appflare reads format 1; update Appflare in [Settings > Updates](/settings/updates#appflare), then try again",
+      "the artifact is format 8, and this version of Appflare reads format 7; update Appflare in [Settings > Updates](/settings/updates#appflare), then try again",
     );
 
     const earlier = await buildArtifactFixture({

@@ -371,7 +371,11 @@ jobs:
           }
           check .app appflare
           check .version "${VERSION}"
-          check .format 1
+          # Historical release retries may still contain format 1.
+          case "$(jq -r '.format' release/manifest.json)" in
+            1|7) ;;
+            *) echo "::error::unsupported release artifact format"; exit 1 ;;
+          esac
           check .keyId "${KEY_ID}"
           # The embedded catalog manifest names the repository and the commit;
           # release:pack stamps its source.ref with the bare version.
@@ -1297,7 +1301,11 @@ jobs:
           }
           check .app appflare-sandbox
           check .version "${VERSION}"
-          check .format 1
+          # Historical release retries may still contain format 1.
+          case "$(jq -r '.format' release/manifest.json)" in
+            1|7) ;;
+            *) echo "::error::unsupported release artifact format"; exit 1 ;;
+          esac
           check .keyId "${KEY_ID}"
           # The embedded catalog manifest names the repository and the commit;
           # release:pack stamps its source.ref with the bare version.

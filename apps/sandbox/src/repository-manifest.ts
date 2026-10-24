@@ -48,7 +48,11 @@ const SECRET_FILES = [".dev.vars.example", ".env.example"] as const;
  * listing). The wrangler config is read by `appflare-pack inspect`, with
  * wrangler's own reader, whatever its format.
  */
-export const DETECTION_FILES = ["package.json", ...SECRET_FILES] as const;
+export const DETECTION_FILES = [
+  "appflare.container.json",
+  "package.json",
+  ...SECRET_FILES,
+] as const;
 
 /** A problem with the checkout: it cannot be built as it is. */
 export class DetectionError extends Error {
@@ -374,6 +378,7 @@ export function repositoryManifest(facts: RepositoryFacts): CatalogManifestDraft
     install: {
       tier: "sandbox",
       packageManager: facts.packageManager,
+      installDirs: facts.pkg === null ? [] : [{ path: ".", lockfile: "required" }],
       wranglerConfig: facts.wranglerConfig,
       workerName: workerNameOf(facts.wrangler.name, slug),
       ...(facts.buildCommand === null ? {} : { buildCommand: facts.buildCommand }),

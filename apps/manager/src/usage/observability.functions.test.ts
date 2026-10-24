@@ -93,7 +93,9 @@ describe("setObservabilityFn", () => {
       ],
     });
     expect(fake.state.calls).toEqual([
+      "GET /workers/scripts/cut/script-settings",
       "PATCH /workers/scripts/cut/script-settings",
+      "GET /workers/scripts/cut-jobs/script-settings",
       "PATCH /workers/scripts/cut-jobs/script-settings",
     ]);
     const row = await env.DB.prepare(

@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { inConnectionWordsOf } from "../cloudflare/sign-in-words.server";
 import { createDb, type Database } from "../db/client";
 import { installs, jobs, resources } from "../db/schema";
+import { diagnosticSettings } from "./diagnostics";
 import { type WorkersApi, workersLogsOn } from "./observability";
 import { OBSERVABILITY_MESSAGES, type SetObservabilityInput } from "./observability-copy";
 import { recordActivity } from "./store/activity.server";
@@ -188,7 +189,11 @@ export async function setAppObservability(
     });
   for (const workerName of workers) {
     try {
-      const settings = await api.workers.setObservability(workerName, input.enabled);
+      const previous = await api.workers.getScriptSettings(workerName);
+      const settings = await api.workers.setObservabilitySettings(
+        workerName,
+        diagnosticSettings(previous.observability, "logs", input.enabled),
+      );
       out.push({ workerName, on: workersLogsOn(settings.observability) });
     } catch (error) {
       const done = out.map((w) => w.workerName);

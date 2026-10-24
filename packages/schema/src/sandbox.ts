@@ -442,6 +442,9 @@ export const buildCleanupRequestSchema = z.object({
 });
 export type BuildCleanupRequest = z.infer<typeof buildCleanupRequestSchema>;
 
+export const SANDBOX_FEATURE_PATCHED_BUILDS = "patched-builds-2026-10";
+export const SANDBOX_FEATURE_CONTAINER_IMPORTS = "container-imports-v1";
+
 /** `SandboxBuilds.info()`: what the manager checks before it trusts a sandbox Worker. */
 export const sandboxInfoSchema = z.object({
   protocol: z.int(),

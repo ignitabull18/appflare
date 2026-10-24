@@ -73,6 +73,7 @@ export const moduleTypeSchema = z.enum([
   "compiled-wasm",
   "python",
   "python-requirement",
+  "source-map",
 ]);
 export type ModuleType = z.infer<typeof moduleTypeSchema>;
 
@@ -778,7 +779,7 @@ export type ArtifactEntryWorker = z.infer<typeof artifactEntryWorkerSchema>;
  * {@link LAST_EARLIER_ARTIFACT_FORMAT} were written by earlier versions of
  * Appflare, before this shape, so the next format is 7.
  */
-export const LATEST_ARTIFACT_FORMAT = 1;
+export const LATEST_ARTIFACT_FORMAT = 7;
 
 /**
  * The highest format earlier versions of Appflare wrote (they wrote 1 to 6,
@@ -850,13 +851,24 @@ function assetsOnlyIssues(
  */
 export const artifactManifestSchema = z
   .object({
-    format: z.literal(LATEST_ARTIFACT_FORMAT),
+    format: z.union([z.literal(1), z.literal(LATEST_ARTIFACT_FORMAT)]),
     /** The app's slug. */
     app: z.string().min(1),
     /** The version the release is published as (`<slug>@<version>`). */
     version: z.string().min(1),
     builtAt: z.iso.datetime(),
     builder: z.string().min(1),
+    toolchains: z
+      .array(
+        z.object({
+          directory: z.string(),
+          node: z.string(),
+          manager: z.enum(["npm", "pnpm", "yarn", "bun"]),
+          requested: z.string().nullable(),
+          actual: z.string().nullable(),
+        }),
+      )
+      .optional(),
     keyId: z.string().min(1),
     /** The app's Worker; for an app of several Workers, the primary one. */
     worker: artifactWorkerSchema,
@@ -869,6 +881,18 @@ export const artifactManifestSchema = z
     catalog: catalogManifestSchema,
   })
   .superRefine((manifest, ctx) => {
+    if (
+      manifest.catalog.runtime &&
+      (manifest.format !== LATEST_ARTIFACT_FORMAT ||
+        !manifest.catalog.requires.includes("container-apps"))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["format"],
+        message:
+          "Container applications require artifact format 7 and the container-apps manager feature.",
+      });
+    }
     // A wrangler config var filled in with an Access placeholder needs the
     // `"access"` requirement, as a catalog default does (./access.ts).
     if (!manifest.catalog.requires.includes(ACCESS_REQUIREMENT)) {
@@ -1027,11 +1051,11 @@ export function unknownArtifactFormatProblem(json: unknown): string | null {
   if (typeof json !== "object" || json === null || !("format" in json)) return null;
   const format = (json as { format: unknown }).format;
   if (typeof format !== "number" || !Number.isInteger(format)) return null;
-  if (format === LATEST_ARTIFACT_FORMAT) return null;
+  if (format === 1 || format === LATEST_ARTIFACT_FORMAT) return null;
   if (format > LAST_EARLIER_ARTIFACT_FORMAT) {
     return `the artifact is format ${format}, and this version of Appflare reads format ${LATEST_ARTIFACT_FORMAT}; update Appflare in ${UPDATE_APPFLARE_PLACE}, then try again`;
   }
-  if (format > LATEST_ARTIFACT_FORMAT) {
+  if (format >= 2 && format <= LAST_EARLIER_ARTIFACT_FORMAT) {
     return `the artifact is format ${format}: the app's release was built for an earlier version of Appflare and needs to be packed again by its catalog`;
   }
   return `the artifact is format ${format}, which no version of Appflare reads`;

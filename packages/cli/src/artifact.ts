@@ -98,7 +98,7 @@ export async function verifyArtifact(options: VerifyArtifactOptions): Promise<Ve
     throw new Error(
       format > LAST_EARLIER_ARTIFACT_FORMAT
         ? `the release is artifact format ${format}, and this installer reads format ${LATEST_ARTIFACT_FORMAT}; run the latest installer (npx create-appflare@latest)`
-        : format > LATEST_ARTIFACT_FORMAT
+        : format > 1
           ? `the release is artifact format ${format}: it was built for an earlier version of Appflare and needs to be packed again by its catalog`
           : `the release is artifact format ${format}, which this installer does not read`,
     );

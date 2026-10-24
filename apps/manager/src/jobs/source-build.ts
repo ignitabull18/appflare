@@ -4,6 +4,7 @@ import {
   buildInstallIdSchema,
   buildVersionSchema,
   catalogManifestSchema,
+  containerImportSchema,
   githubRepositorySchema,
   githubTokenIdSchema,
   githubTokenSecretName,
@@ -11,6 +12,8 @@ import {
   gitShaSchema,
   type RepositoryBuildRequest,
   repositoryBuildRequestSchema,
+  SANDBOX_FEATURE_CONTAINER_IMPORTS,
+  SANDBOX_FEATURE_PATCHED_BUILDS,
   SANDBOX_PROTOCOL_VERSION,
   sandboxInstanceTypeSchema,
   sandboxObjectUrl,
@@ -82,6 +85,8 @@ export const sourceBuildJobParams = z.object({
   ref: gitRefSchema.optional(),
   /** The commit the ref resolved to when the build was started. */
   commit: gitShaSchema.optional(),
+  container: containerImportSchema.optional(),
+  allowContainers: z.boolean().optional(),
   buildCommand: buildCommandChoiceSchema.optional(),
   /** For a catalog app built from source: its catalog manifest. */
   baseline: catalogManifestSchema.optional(),
@@ -114,6 +119,8 @@ export function repositoryBuildRequest(
     installId: params.installId,
     runId: sourceBuildRunId(params.jobId),
     repo: params.repo,
+    container: params.container,
+    allowContainers: params.allowContainers,
     ...(params.ref === undefined ? {} : { ref: params.ref }),
     ...(params.commit === undefined ? {} : { commit: params.commit }),
     ...(params.buildCommand === undefined ? {} : { buildCommand: params.buildCommand }),
@@ -178,6 +185,14 @@ export async function runSourceBuild(ctx: JobContext): Promise<void> {
         throw new JobError(
           `the sandbox Worker ${info.sandboxVersion} cannot build from a repository; to update it, ${UPDATE_SANDBOX_HINT}`,
         );
+      }
+      if (!info.features?.includes(SANDBOX_FEATURE_PATCHED_BUILDS)) {
+        throw new JobError(
+          `This sandbox predates the patched image and exact build-tool checks. Install the matching Appflare sandbox release before building; ${UPDATE_SANDBOX_HINT}`,
+        );
+      }
+      if (params.allowContainers && !info.features?.includes(SANDBOX_FEATURE_CONTAINER_IMPORTS)) {
+        throw new JobError(`This sandbox cannot import container images; ${UPDATE_SANDBOX_HINT}`);
       }
       const assetsOnlyRefused = assetsOnlyRefusal(info, params.baseline, UPDATE_SANDBOX_HINT);
       if (assetsOnlyRefused !== null) throw new JobError(assetsOnlyRefused);

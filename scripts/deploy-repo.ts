@@ -179,6 +179,7 @@ export function deployRepoWranglerConfig(
 
   const rules = new Map<string, string[]>();
   for (const module of worker.modules) {
+    if (module.type === "source-map") continue;
     const type = RULE_TYPES[module.type];
     if (type === undefined) throw new Error(`unknown module type ${module.type}`);
     rules.set(type, [...(rules.get(type) ?? []), module.name]);
@@ -191,6 +192,9 @@ export function deployRepoWranglerConfig(
     compatibility_date: worker.compatibilityDate,
     compatibility_flags: [...worker.compatibilityFlags],
     no_bundle: true,
+    ...(worker.modules.some((module) => module.type === "source-map")
+      ? { upload_source_maps: true }
+      : {}),
     find_additional_modules: true,
     base_dir: WORKER_DIR,
     rules: [...rules].map(([type, globs]) => ({ type, globs })),

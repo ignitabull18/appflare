@@ -107,11 +107,11 @@ describe("artifactManifestSchema", () => {
     });
   });
 
-  it("reads format 1 only, and says to update Appflare for a newer one", () => {
+  it("reads formats 1 and 7, and says to update Appflare for a newer one", () => {
     expect(artifactManifestSchema.safeParse({ ...validArtifact, format: 2 }).success).toBe(false);
     expect(unknownArtifactFormatProblem(validArtifact)).toBeNull();
-    expect(unknownArtifactFormatProblem({ format: 7 })).toBe(
-      "the artifact is format 7, and this version of Appflare reads format 1; update Appflare in Settings > Updates, then try again",
+    expect(unknownArtifactFormatProblem({ format: 8 })).toBe(
+      "the artifact is format 8, and this version of Appflare reads format 7; update Appflare in Settings > Updates, then try again",
     );
     expect(unknownArtifactFormatProblem({ format: 0 })).toBe(
       "the artifact is format 0, which no version of Appflare reads",

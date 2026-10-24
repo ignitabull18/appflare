@@ -3,6 +3,7 @@ import {
   appOpenUrl,
   appTokenPermissions,
   artifactManifestSchema,
+  type ContainerRuntime,
   combinedWorkerFacts,
   type EntryWorkerPlaceholders,
   emailScriptName,
@@ -134,6 +135,7 @@ export interface CustomDomainView {
 }
 
 export interface InstallDetail extends InstallRow {
+  containerRuntime?: ContainerRuntime;
   currentVersionId: string | null;
   pinSha: string | null;
   /**
@@ -403,6 +405,14 @@ export async function readInstallDetail(installId: string): Promise<InstallDetai
   // Told apart from the other installs the way the sidebar tells them apart.
   const labels = await readInstallLabels(env.DB, [{ id: row.id, name, ...names }], allNames);
   return {
+    containerRuntime: (() => {
+      try {
+        return artifactManifestSchema.parse(JSON.parse(row.manifest_json ?? "null")).catalog
+          .runtime;
+      } catch {
+        return undefined;
+      }
+    })(),
     id: row.id,
     slug: installAppKey(row),
     catalogSource: sourceOfRow(row, await catalogSources(await records)),

@@ -35,7 +35,7 @@ async function updateStatic() {
       { route: "/app.css", content: "h1 { color: teal }" },
     ],
   });
-  expect(fixture.manifest.format).toBe(1);
+  expect(fixture.manifest.format).toBe(7);
   const fake = fakeAccount(fixture, {
     deployments: [{ id: "dep-0", versions: [{ version_id: OLD_VERSION, percentage: 100 }] }],
   });

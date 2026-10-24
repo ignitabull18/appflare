@@ -47,6 +47,8 @@ export const UNSUPPORTED_WRANGLER_SECTION_LABELS = {
   media: "Media Transformations",
   stream: "Stream",
   artifacts: "Artifacts",
+  analytics: "Analytics SQL bindings",
+  k2: "K2 streams",
   flagship: "Flagship feature flags",
   unsafe_hello_world: "the example Hello World binding",
   connect: "raw TCP sockets (connect)",

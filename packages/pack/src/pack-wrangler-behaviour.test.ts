@@ -88,6 +88,7 @@ describe("module types follow the config's module rules, as wrangler uploads the
       ["<hash>-logo.svg", "text"],
       ["<hash>-notes.txt", "data"],
       ["<hash>-page.html", "text"],
+      ["index.js.map", "source-map"],
     ]);
     // The name is the one the bundle imports, without wrangler's leading "./".
     const svg = res.manifest.worker.modules.find((m) => m.name.endsWith("-logo.svg"));
@@ -111,7 +112,7 @@ describe("the config's build.command", () => {
     expect(existsSync(path.join(c.configDir, "dist", "index.js"))).toBe(true);
     expect(existsSync(path.join(c.dir, "dist"))).toBe(false);
     expect(res.manifest.worker.mainModule).toBe("index.js");
-    expect(res.manifest.worker.modules.map((m) => m.name)).toEqual(["index.js"]);
+    expect(res.manifest.worker.modules.map((m) => m.name)).toEqual(["index.js", "index.js.map"]);
   }, 120_000);
 
   it("still lets an entry drop it and build with its own command from the checkout root", async () => {
@@ -134,16 +135,19 @@ describe("the config's build.command", () => {
         'writeFileSync(path.join(out, "index.js"), "export default { fetch: () => new Response(\\"built\\") };\\n");\n',
     );
     const res = await packed(c);
-    expect(res.manifest.worker.modules.map((m) => m.name)).toEqual(["index.js"]);
+    expect(res.manifest.worker.modules.map((m) => m.name)).toEqual(["index.js", "index.js.map"]);
   }, 120_000);
 });
 
 describe("keys the packer does not know", () => {
   it("refuses a config with keys wrangler does not know, naming them, and writes nothing", async () => {
-    const c = checkout({ k2: [{ binding: "STREAM" }], analytics: { binding: "SQL" } });
+    const c = checkout({
+      future_binding: [{ binding: "STREAM" }],
+      unknown_analytics: { binding: "SQL" },
+    });
     await expect(packed(c)).rejects.toThrow(UnknownWranglerKeyError);
     await expect(packed(c)).rejects.toThrow(
-      /the wrangler config wrangler\.jsonc sets "k2" and "analytics", which the packer does not know/,
+      /the wrangler config wrangler\.jsonc sets "future_binding" and "unknown_analytics", which the packer does not know/,
     );
     expect(existsSync(path.join(parent, "out"))).toBe(false);
   }, 120_000);

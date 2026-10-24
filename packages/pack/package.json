@@ -39,11 +39,14 @@
     "@noble/hashes": "1.8.0",
     "bcryptjs": "3.0.3",
     "ignore": "5.3.1",
-    "wrangler": "4.136.2",
-    "zod": "4.6.5"
+    "wrangler": "4.152.0",
+    "zod": "4.6.5",
+    "semver": "7.8.5",
+    "minimatch": "10.2.6"
   },
   "devDependencies": {
     "@appflare/cf-api": "workspace:*",
-    "@appflare/schema": "workspace:*"
+    "@appflare/schema": "workspace:*",
+    "@types/semver": "7.8.0"
   }
 }

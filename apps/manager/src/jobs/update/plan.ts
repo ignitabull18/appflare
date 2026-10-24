@@ -955,7 +955,9 @@ function stateOf(entry: WorkerExports[string]): string | undefined {
  * way a Worker that implements a Durable Object has no preview to check.
  */
 export function updatePath(
-  manifest: Pick<ArtifactManifest, "worker">,
+  manifest: Pick<ArtifactManifest, "worker"> & {
+    catalog?: Pick<ArtifactManifest["catalog"], "runtime">;
+  },
   appliedDoTag: string | null,
   /** The `exports` of the version serving now ({@link workerExportsOf}). */
   servingExports: WorkerExports | undefined,
@@ -979,7 +981,7 @@ export function updatePath(
     );
   return {
     fullDeploy: pending,
-    scriptUpload: pending !== null || exportsChanged,
+    scriptUpload: pending !== null || exportsChanged || manifest.catalog?.runtime !== undefined,
     skipPreview:
       pending !== null
         ? FULL_DEPLOY_REASON

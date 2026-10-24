@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ACCESS_DENIED_MESSAGE, isAccessDenied } from "../access/denied";
+import { ServerFunctionResponseError } from "../server-function-fetch";
 import { RouteError, STALE_BUILD_MESSAGE } from "./route-error";
 
 /** What TanStack Start's client throws for a server function call Access refused. */
@@ -25,6 +26,19 @@ describe("isAccessDenied", () => {
 });
 
 describe("RouteError", () => {
+  it("shows a transport refusal with its request reference and a reload action", () => {
+    const error = new ServerFunctionResponseError(
+      new Response(null, {
+        status: 403,
+        headers: { "cf-ray": "a4f5c7a51a0e6052-YVR" },
+      }),
+    );
+    const html = render(error);
+    expect(html).toContain("HTTP 403");
+    expect(html).toContain("a4f5c7a51a0e6052-YVR");
+    expect(html).toMatch(/<button[^>]*>.*Reload.*<\/button>/);
+    expect(html).not.toContain("Invariant failed");
+  });
   it("explains an Access refusal and offers a reload instead of the raw error", () => {
     const html = render(refused);
     expect(html).toContain(ACCESS_DENIED_MESSAGE);

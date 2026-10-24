@@ -134,7 +134,17 @@ export async function countRemovedAppsCore(d1: D1Database): Promise<number> {
     .select({ count: sql<number>`count(*)` })
     .from(installs)
     .where(isRemovedApp());
-  return row?.count ?? 0;
+  const [recoverable] = await createDb(d1)
+    .select({ count: sql<number>`count(*)` })
+    .from(installs)
+    .where(
+      and(
+        isNull(installs.forgotten_at),
+        sql`EXISTS (SELECT 1 FROM resources r WHERE r.install_id = ${installs.id} AND r.kind = 'd1' AND r.deleted_at > ${Date.now() - 7 * 24 * 60 * 60 * 1000})`,
+        sql`NOT (${isRemovedApp()})`,
+      ),
+    );
+  return (row?.count ?? 0) + (recoverable?.count ?? 0);
 }
 
 /** Removed apps that still keep something and were not forgotten, most recently uninstalled first. */

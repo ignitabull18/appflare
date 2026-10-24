@@ -69,6 +69,19 @@ const LEGACY_BINDINGS = RELEASE_BINDINGS.filter((b) => b.type !== "version_metad
 describe("deployRepoWranglerConfig", () => {
   const config = deployRepoWranglerConfig(manifest(RELEASE_BINDINGS));
 
+  it("uploads maps privately without treating them as executable modules", () => {
+    const release = manifest(RELEASE_BINDINGS);
+    const first = release.worker.modules[0];
+    if (!first) throw new Error("No fixture module");
+    release.worker.modules.push({
+      ...first,
+      name: "index.js.map",
+      type: "source-map",
+    });
+    const config = deployRepoWranglerConfig(release);
+    expect(config.upload_source_maps).toBe(true);
+    expect(config.rules).toEqual([{ type: "ESModule", globs: ["index.js"] }]);
+  });
   it("declares D1 and KV without ids, the Workflow, assets, the cron, and the version", () => {
     expect(config).toMatchObject({
       name: "appflare",
@@ -416,6 +429,7 @@ describe.skipIf(!existsSync(MANAGER_RELEASE_WRANGLER))(
       });
       expect(result.problems).toEqual([
         "worker/index.js contains the value of TEST_TOKEN in .env",
+        "worker/index.js.map contains the value of TEST_TOKEN in .env",
         `${leakDir} was deleted rather than kept with these values in it`,
       ]);
       expect(existsSync(leakDir)).toBe(false);

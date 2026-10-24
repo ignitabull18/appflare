@@ -3841,3 +3841,87 @@ describe("update job, an app protected with Cloudflare Access", () => {
     expect(r.syncFailedAt).not.toBeNull();
   });
 });
+
+describe("container update recovery", () => {
+  it.each(["rollout", "health"])(
+    "restores the prior image, Worker deployment and install record after a failed %s check",
+    async (failure) => {
+      const oldImage = `docker.io/library/nginx@sha256:${"a".repeat(64)}`;
+      const newImage = `docker.io/library/nginx@sha256:${"b".repeat(64)}`;
+      const catalog = (image: string): NonNullable<ArtifactFixtureOptions["catalog"]> => ({
+        plan: "paid" as const,
+        requires: ["containers", "container-apps"],
+        runtime: { image, port: 80, architecture: "linux/amd64" as const },
+      });
+      const binding = {
+        type: "durable_object_namespace" as const,
+        name: "APP_CONTAINER",
+        class_name: "AppContainer",
+      };
+      const previous = await buildArtifactFixture({
+        version: "1.0.0",
+        catalog: catalog(oldImage),
+        bindings: [binding],
+      });
+      let configuration = { image: oldImage, instance_type: "lite" };
+      const rolloutImages: string[] = [];
+      const result = await update(
+        { version: "1.1.0", catalog: catalog(newImage), bindings: [binding] },
+        {
+          health: [{ status: failure === "health" ? 503 : 200, body: "test" }],
+          doNamespaces: [{ id: "container-ns", script: "cut", class: "AppContainer" }],
+        },
+        {
+          manifestJson: JSON.stringify(previous.manifest),
+          resources: [{ kind: "worker", name: "cut", cfId: "cut" }],
+        },
+        { paidConfirmed: true, secrets: { ADMIN_PASSWORD: "recovery-test" } },
+        "local",
+        undefined,
+        (fake) => async (request, init) => {
+          const url = new URL(request);
+          const method = init?.method ?? "GET";
+          const answer = (value: unknown) =>
+            Response.json({ success: true, result: value, errors: [], messages: [] });
+          if (url.pathname.includes("/containers/applications")) {
+            const app = {
+              id: "container-id",
+              name: "cut-container",
+              durable_objects: { namespace_id: "container-ns" },
+              configuration,
+            };
+            if (url.pathname.endsWith("/applications")) return answer([app]);
+            if (method === "PATCH") {
+              configuration = JSON.parse(String(init?.body)).configuration;
+              return answer({ ...app, configuration });
+            }
+            if (method === "POST") {
+              rolloutImages.push(JSON.parse(String(init?.body)).target_configuration.image);
+              return answer({ id: `roll-${rolloutImages.length}` });
+            }
+            if (url.pathname.includes("/rollouts/"))
+              return answer({
+                id: url.pathname.split("/").at(-1),
+                status:
+                  failure === "rollout" && rolloutImages.length === 1 ? "reverted" : "completed",
+              });
+            return answer(app);
+          }
+          return fake.fetch(request, init);
+        },
+      );
+      expect(String(result.error)).toContain(failure === "rollout" ? "reverted" : "readiness");
+      expect(String(result.error)).not.toContain("restore container Worker and install record");
+      expect(rolloutImages).toEqual([newImage, oldImage]);
+      expect(configuration.image).toBe(oldImage);
+      expect(result.fake.state.deployments[0]?.versions).toEqual([
+        { version_id: OLD_VERSION, percentage: 100 },
+      ]);
+      expect(result.install).toMatchObject({
+        catalog_version: "1.0.0",
+        current_version_id: OLD_VERSION,
+        manifest_json: JSON.stringify(previous.manifest),
+      });
+    },
+  );
+});

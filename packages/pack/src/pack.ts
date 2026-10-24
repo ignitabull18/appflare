@@ -28,6 +28,8 @@ import {
   type CatalogManifest,
   catalogVarProblems,
   catalogWorkerName,
+  containerWorkerConfig,
+  containerWorkerSource,
   type D1MigrationFile,
   type DoMigration,
   installDirList,
@@ -649,6 +651,32 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     { repositoryBuild: options.repositoryBuild === true },
   );
 
+  if (catalog.runtime) {
+    if (
+      catalog.install.wranglerConfig !== ".appflare-container/wrangler.json" ||
+      catalog.install.workers !== undefined ||
+      catalog.install.buildCommand != null ||
+      installDirList(catalog.install).length !== 0
+    )
+      throw new Error(
+        "A container import uses only the generated adapter, with no repository build commands or dependencies.",
+      );
+    const adapter = path.join(checkoutDir, ".appflare-container");
+    const existingAdapter = lstatSync(adapter, { throwIfNoEntry: false });
+    if (existingAdapter && (!existingAdapter.isDirectory() || existingAdapter.isSymbolicLink()))
+      throw new Error("The generated container adapter directory cannot be a link or file.");
+    for (const file of ["worker.js", "wrangler.json"]) {
+      const existing = lstatSync(path.join(adapter, file), { throwIfNoEntry: false });
+      if (existing && (!existing.isFile() || existing.isSymbolicLink()))
+        throw new Error("Generated container adapter files cannot be links or directories.");
+    }
+    mkdirSync(adapter, { recursive: true });
+    writeFileSync(path.join(adapter, "worker.js"), containerWorkerSource(catalog.runtime));
+    writeFileSync(
+      path.join(adapter, "wrangler.json"),
+      JSON.stringify(containerWorkerConfig(catalog.runtime)),
+    );
+  }
   // (a2) A config kept as a template (`wrangler.toml.example`) gets its real
   // name first, so the build and wrangler's reader both find it: the
   // entry's config, and each Worker's of an app of several Workers.
@@ -671,10 +699,11 @@ export async function pack(options: PackOptions): Promise<PackResult> {
   const inlineOptions = { checkoutDir, specs, workerName: catalogWorkerName(catalog), logger };
   writeInlineConfigs(inlineOptions);
 
+  let toolchains: ReturnType<typeof installDependencies> = [];
   // (b) Install dependencies unless disabled.
   // Each directory of `install.installDirs` in order, the root when it lists none.
   if (install) {
-    installDependencies({
+    toolchains = installDependencies({
       checkoutDir,
       installDirs: installDirList(catalog.install),
       packageManager: catalog.install.packageManager,
@@ -1060,6 +1089,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     version,
     builtAt: new Date().toISOString(),
     builder: `@appflare/pack@${packerVersion()}`,
+    ...(toolchains.length ? { toolchains } : {}),
     keyId: options.keyId ?? UNSIGNED_KEY_ID,
     worker: primarySection.worker,
     assets: primarySection.assets,

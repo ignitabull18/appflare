@@ -10,6 +10,7 @@ import { appAlternativesSchema, appFeaturesSchema } from "./app-features.ts";
 import { buildEnvSchema } from "./build-env.ts";
 import { catalogCategoriesSchema, catalogCategoryProblems } from "./categories.ts";
 import { type ConfigPatch, configPatchSchema } from "./config-patch.ts";
+import { containerRuntimeSchema } from "./container-app.ts";
 import { catalogD1Schema } from "./d1.ts";
 import { catalogFieldLinkSchema } from "./field-link.ts";
 import { catalogHyperdriveBindingsSchema } from "./hyperdrive.ts";
@@ -2351,6 +2352,7 @@ export const catalogManifestSchema = z
      * Resource settings the wrangler config cannot express, such as a Vectorize
      * index's dimensions and metric.
      */
+    runtime: containerRuntimeSchema.optional(),
     resources: catalogResourcesSchema.optional(),
     /**
      * How the catalog's bump bot treats this entry. Left out, an artifact tier

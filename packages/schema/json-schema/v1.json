@@ -828,6 +828,14 @@
               "type": "null",
               "description": "Only null: drops `artifacts`, which Appflare cannot install, from the config."
             },
+            "analytics": {
+              "type": "null",
+              "description": "Only null: drops `analytics`, which Appflare cannot install, from the config."
+            },
+            "k2": {
+              "type": "null",
+              "description": "Only null: drops `k2`, which Appflare cannot install, from the config."
+            },
             "flagship": {
               "type": "null",
               "description": "Only null: drops `flagship`, which Appflare cannot install, from the config."
@@ -1918,6 +1926,14 @@
                     "type": "null",
                     "description": "Only null: drops `artifacts`, which Appflare cannot install, from the config."
                   },
+                  "analytics": {
+                    "type": "null",
+                    "description": "Only null: drops `analytics`, which Appflare cannot install, from the config."
+                  },
+                  "k2": {
+                    "type": "null",
+                    "description": "Only null: drops `k2`, which Appflare cannot install, from the config."
+                  },
                   "flagship": {
                     "type": "null",
                     "description": "Only null: drops `flagship`, which Appflare cannot install, from the config."
@@ -2832,6 +2848,7 @@
           "containers",
           "analytics-engine",
           "access",
+          "container-apps",
           "secret-keys",
           "service-props",
           "config-patch-values",
@@ -3475,6 +3492,83 @@
           }
         ]
       }
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^(?:docker\\.io|registry\\.cloudflare\\.com)\\/[a-zA-Z0-9_./-]+@sha256:[a-f0-9]{64}$"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "readinessPath": {
+          "default": "/",
+          "type": "string",
+          "maxLength": 1024,
+          "pattern": "^\\/(?!\\/)[^\\s?#]*$"
+        },
+        "instanceType": {
+          "default": "lite",
+          "type": "string",
+          "enum": [
+            "lite",
+            "standard-1",
+            "standard-2"
+          ]
+        },
+        "maxInstances": {
+          "default": 1,
+          "type": "number",
+          "const": 1
+        },
+        "idleTimeoutSeconds": {
+          "default": 300,
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 3600
+        },
+        "environment": {
+          "default": {},
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "secrets": {
+          "default": [],
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+          }
+        },
+        "storage": {
+          "default": "ephemeral",
+          "type": "string",
+          "const": "ephemeral"
+        },
+        "architecture": {
+          "type": "string",
+          "const": "linux/amd64"
+        }
+      },
+      "required": [
+        "image",
+        "port",
+        "architecture"
+      ],
+      "additionalProperties": false
     },
     "resources": {
       "type": "object",

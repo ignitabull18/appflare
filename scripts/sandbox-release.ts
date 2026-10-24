@@ -140,7 +140,10 @@ export function sandboxArtifactProblems(
   expect(worker.mainModule === "index.js", `worker.mainModule is "${worker.mainModule}"`);
   expect(worker.modules.length > 0, "the Worker has no modules");
   for (const module of worker.modules) {
-    expect(/\.m?js$/.test(module.name), `unexpected worker module ${module.name}`);
+    expect(
+      module.type === "source-map" ? /\.m?js\.map$/.test(module.name) : /\.m?js$/.test(module.name),
+      `unexpected worker module ${module.name}`,
+    );
   }
   expect(
     worker.compatibilityFlags.includes("nodejs_compat"),

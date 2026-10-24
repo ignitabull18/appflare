@@ -8,6 +8,7 @@ export * from "./catalog-index";
 export * from "./catalog-stats";
 export * from "./categories";
 export * from "./config-patch";
+export * from "./container-app.ts";
 export * from "./d1";
 export * from "./field-link";
 export * from "./github-tokens";

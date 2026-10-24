@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { installs, snapshots } from "../../db/schema";
 import type { EntryWorker } from "../entry-workers";
+import { parseStoredManifest } from "../entry-workers";
 import { readOtherWorkerVersionsPhase } from "../install/entry-worker-phases";
 import { JobError, type JobSteps } from "../steps";
 import { activeVersionId, boundHyperdriveIds, type RecordedResource, snapshotRow } from "./plan";
@@ -62,17 +63,34 @@ export async function takeSnapshotPhase(
     });
     bookmarks.push({ databaseId, bookmark: got.bookmark });
   }
-  await run("record snapshot", async ({ log, orm }) => {
+  await run("record snapshot", async ({ log, orm, cf }) => {
     const [install] = await orm
       .select()
       .from(installs)
       .where(eq(installs.id, input.installId))
       .limit(1);
     if (install === undefined) throw new JobError("the install no longer exists");
+    let containerState: string | null = null;
+    if (parseStoredManifest(install.manifest_json)?.catalog.runtime) {
+      const api = cf();
+      const apps = await api.containers.listApplications({ name: `${input.workerName}-container` });
+      const namespaces = await api.workers.listDurableObjectNamespaces();
+      const ns = namespaces.find(
+        (n) => n.script === input.workerName && n.class === "AppContainer",
+      );
+      if (!ns) throw new JobError("Cannot snapshot the application's container namespace.");
+      const app = apps.find(
+        (a) =>
+          a.name === `${input.workerName}-container` && a.durable_objects?.namespace_id === ns.id,
+      );
+      if (!app?.configuration?.image)
+        throw new JobError("Cannot snapshot the application's live container configuration.");
+      containerState = JSON.stringify(app.configuration);
+    }
     await orm
       .insert(snapshots)
-      .values(
-        snapshotRow({
+      .values({
+        ...snapshotRow({
           id: input.jobId,
           installId: input.installId,
           jobId: input.jobId,
@@ -87,7 +105,8 @@ export async function takeSnapshotPhase(
           hyperdrive: boundHyperdriveIds(input.resources),
           accessAud: input.accessAud ?? null,
         }),
-      )
+        container_state_json: containerState,
+      })
       .onConflictDoNothing();
     log.info(
       `Snapshot taken: version ${deployed.versionId} and ${bookmarks.length} D1 bookmark(s).`,

@@ -138,12 +138,13 @@ describe.skipIf(!existsSync(MANAGER_RELEASE_WRANGLER))("the packed manager artif
   it("carries the dist/server worker, the dist/client assets, and nothing else", () => {
     const manifestText = readFileSync(path.join(outDir, "manifest.json"), "utf8");
     const manifest = JSON.parse(manifestText) as {
-      worker: { modules: Array<{ name: string }> };
+      worker: { modules: Array<{ name: string; type: string }> };
       assets: { files: Array<{ route: string }> };
     };
     expect(manifest.worker.modules[0]?.name).toBe("index.js");
     // The server is built as one module (apps/manager/vite.config.ts).
-    expect(manifest.worker.modules).toHaveLength(1);
+    expect(manifest.worker.modules).toHaveLength(2);
+    expect(manifest.worker.modules[1]?.type).toBe("source-map");
     const routes = manifest.assets.files.map((f) => f.route);
     expect(routes).toContain("/index.html");
     expect(routes.some((r) => r.includes(".assetsignore") || r.includes("wrangler"))).toBe(false);
@@ -161,7 +162,7 @@ describe.skipIf(!existsSync(MANAGER_RELEASE_WRANGLER))("the packed manager artif
     manifest.assets.config.not_found_handling = "single-page-application";
     manifest.assets.config.run_worker_first = ["/*", "!/assets/*"];
     const first = manifest.worker.modules[0];
-    for (let i = 1; i <= MANAGER_MAX_MODULES; i++) {
+    for (let i = 1; manifest.worker.modules.length <= MANAGER_MAX_MODULES; i++) {
       manifest.worker.modules.push({ ...first, name: `chunk-${i}.js` });
     }
     first.size = 40 * 1024 * 1024;

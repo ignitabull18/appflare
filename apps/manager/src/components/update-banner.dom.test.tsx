@@ -265,6 +265,18 @@ describe("the update dialog of a version that creates a D1 database", () => {
 });
 
 describe("the banner while an update runs", () => {
+  it("explains the live container readiness check without promising uninterrupted service", () => {
+    const install = {
+      id: "i1",
+      status: "updating",
+      activeJobId: "job1",
+      jobs: [{ id: "job1", kind: "update" }],
+      containerRuntime: { image: "fixture" },
+    } as unknown as InstallDetail;
+    act(() => root.render(<UpdateBanner install={install} isAdmin />));
+    expect(container.textContent).toContain("Requests may be briefly interrupted");
+    expect(container.textContent).not.toContain("current version keeps serving");
+  });
   it("shows the moving mark as decoration, with the link to the log", () => {
     const install = {
       id: "i1",

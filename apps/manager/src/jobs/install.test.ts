@@ -1198,7 +1198,7 @@ describe("install job", () => {
       { secrets: { ADMIN_PASSWORD: PASSWORD, APP_KEY: key } },
     );
     expect(r.error).toBeNull();
-    expect(r.fixture.manifest.format).toBe(1);
+    expect(r.fixture.manifest.format).toBe(7);
     expect(r.fake.state.secrets).toEqual({ ADMIN_PASSWORD: PASSWORD, APP_KEY: key });
     expect(r.fake.state.secrets.APP_KEY?.split("\n")).toHaveLength(5);
     expect(JSON.stringify(r.logs)).not.toContain(body);
@@ -1402,7 +1402,7 @@ describe("install job", () => {
 
     it("carries the seed-only values in the Workflow params alone", async () => {
       const fixture = await buildArtifactFixture(seedApp(false));
-      expect(fixture.manifest.format).toBe(1);
+      expect(fixture.manifest.format).toBe(7);
       const started = await start(fixture, seedInput);
       expect(started.params.seed).toEqual({
         secrets: { FIRST_ADMIN_PASSWORD: SEED_PASSWORD },
@@ -1509,7 +1509,7 @@ describe("install job", () => {
     });
     expect(r.error).toBeNull();
     expect(r.job?.status).toBe("succeeded");
-    expect(r.fixture.manifest.format).toBe(1);
+    expect(r.fixture.manifest.format).toBe(7);
     const names = r.step.names;
     const at = (name: string) => names.indexOf(name);
     expect(at("record R2 bucket cut-files")).toBeLessThan(

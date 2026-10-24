@@ -32,6 +32,7 @@ import {
   snapshotHasSameCode,
 } from "../installs/rollback-copy";
 import { appBaseUrl, domainHostnames } from "../installs/workers-dev";
+import { restoreContainerSnapshotPhase } from "./container-app";
 import {
   entryWorkers,
   mergedWorkerVersions,
@@ -988,6 +989,13 @@ export async function runRollback(ctx: JobContext): Promise<void> {
         return {};
       });
       deployed = true;
+      const containerSnapshot = await createDb(env.DB)
+        .select({ state: snapshots.container_state_json })
+        .from(snapshots)
+        .where(eq(snapshots.id, params.snapshotId))
+        .limit(1);
+      if (containerSnapshot[0]?.state)
+        await restoreContainerSnapshotPhase(steps, step, env.DB, params.snapshotId, workerName);
     });
     // The version brought its own secrets back; the records follow them so
     // the install page lists what the Worker has. A failed read only warns.

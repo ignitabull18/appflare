@@ -19,8 +19,11 @@
   "workers_dev": false,
   "preview_urls": false,
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "issues": { "enabled": true },
+    "traces": { "enabled": false, "head_sampling_rate": 0.1, "persist": true }
   },
+  "upload_source_maps": true,
   // One container class per size and use. Runs go on `standard-1` unless the
   // catalog entry asks for `standard-2`. Builds use Sandbox and LargeSandbox,
   // which refuse requests addressed to api.cloudflare.com and never hold a

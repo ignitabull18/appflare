@@ -28,6 +28,7 @@
  * export runs `catalog.ts` directly under Node's type stripping.
  */
 export const MANAGER_FEATURE_REQUIREMENTS = [
+  "container-apps",
   "secret-keys",
   "service-props",
   "config-patch-values",

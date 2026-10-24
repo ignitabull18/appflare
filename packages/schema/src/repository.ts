@@ -8,6 +8,7 @@ import {
   MAX_BUILD_COMMANDS,
   sandboxInstanceTypeSchema,
 } from "./catalog";
+import { containerImportSchema } from "./container-app.ts";
 import { githubTokenSecretNameSchema } from "./github-tokens";
 import {
   installLockfileSchema,
@@ -123,6 +124,8 @@ export const repositoryBuildRequestSchema = z
      * there, even if the ref has moved on since.
      */
     commit: gitShaSchema.optional(),
+    container: containerImportSchema.optional(),
+    allowContainers: z.boolean().optional(),
     buildCommand: buildCommandChoiceSchema.optional(),
     /**
      * A catalog app built from source: its catalog manifest, which decides

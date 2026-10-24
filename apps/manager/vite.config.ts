@@ -77,6 +77,7 @@ export default defineConfig({
         ],
       },
       build: {
+        sourcemap: true,
         rolldownOptions: {
           output: {
             // The Worker is emitted as ONE module. Updating a Worker in place
@@ -89,6 +90,7 @@ export default defineConfig({
             // Rollup's `inlineDynamicImports: true`. The client bundle keeps its
             // code splitting: its chunks are static assets, uploaded in batches.
             codeSplitting: false,
+            sourcemapExcludeSources: true,
           },
         },
       },

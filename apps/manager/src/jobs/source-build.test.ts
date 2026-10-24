@@ -341,7 +341,7 @@ describe("building a repository for review", () => {
           protocol: 1,
           sandboxVersion: "0.1.3",
           image: "docker.io/mendylanda/appflare-sandbox:0.1.3",
-          features: ["self-deploying", "repository-builds"],
+          features: ["self-deploying", "repository-builds", "patched-builds-2026-10"],
         },
       },
     });
@@ -359,6 +359,23 @@ describe("building a repository for review", () => {
     expect(r.job).toMatchObject({ status: "failed" });
     expect(String(r.job?.error)).toMatch(/^verify built manifest: .*digest/);
     expect(r.row).toMatchObject({ status: "failed" });
+  });
+
+  it("refuses repository builds on a sandbox without patched build capabilities", async () => {
+    const fixture = await repositoryBuild(COMMIT, VERSION);
+    const r = await build({
+      fixture,
+      sandbox: {
+        info: {
+          protocol: 1,
+          sandboxVersion: "0.1.8",
+          image: "docker.io/mendylanda/appflare-sandbox:0.1.8",
+          features: ["repository-builds"],
+        },
+      },
+    });
+    expect(String(r.job?.error)).toContain("predates the patched image");
+    expect(r.sandbox.requests).toEqual([]);
   });
 
   it("refuses to start on a sandbox Worker that cannot build from a repository", async () => {
@@ -1234,7 +1251,12 @@ describe("building a catalog app from source", () => {
           protocol: 1,
           sandboxVersion: "0.1.4",
           image: "docker.io/mendylanda/appflare-sandbox:0.1.4",
-          features: ["self-deploying", "repository-builds", "github-tokens"],
+          features: [
+            "self-deploying",
+            "repository-builds",
+            "patched-builds-2026-10",
+            "github-tokens",
+          ],
         },
       },
     });
@@ -1253,7 +1275,13 @@ describe("building a catalog app from source", () => {
           protocol: 1,
           sandboxVersion: "0.1.4",
           image: "docker.io/mendylanda/appflare-sandbox:0.1.4",
-          features: ["self-deploying", "repository-builds", "github-tokens", "install-dirs"],
+          features: [
+            "self-deploying",
+            "repository-builds",
+            "patched-builds-2026-10",
+            "github-tokens",
+            "install-dirs",
+          ],
         },
       },
     });
@@ -1297,6 +1325,70 @@ describe("building a catalog app from source", () => {
 });
 
 describe("checking for changes and rebuilding", () => {
+  it("changes only the selected image when rebuilding a container, and rejects non-container apps", async () => {
+    const installed = await installFromRepository();
+    const sandbox = installed.built.sandbox;
+    const deps = buildDeps(
+      sandbox,
+      refsAt(NEWER),
+      () => {},
+      () => "container-rebuild",
+    );
+    const image = `registry.cloudflare.com/${ACC}/fixture@sha256:${"b".repeat(64)}`;
+    const request = {
+      kind: "rebuild" as const,
+      installId: installed.started.installId,
+      containerImage: image,
+      costConfirmed: true,
+    };
+    await expect(startSourceBuildCore(deps, request)).rejects.toThrow(
+      "Only an installed container app",
+    );
+    const manifest = JSON.parse(String(installed.install?.manifest_json));
+    manifest.format = 7;
+    manifest.catalog.requires.push("container-apps");
+    manifest.catalog.runtime = {
+      image: `registry.cloudflare.com/${ACC}/fixture@sha256:${"a".repeat(64)}`,
+      port: 8080,
+      readinessPath: "/health",
+      instanceType: "lite",
+      maxInstances: 1,
+      idleTimeoutSeconds: 300,
+      environment: { MODE: "preserved" },
+      secrets: ["API_KEY"],
+      storage: "ephemeral",
+      architecture: "linux/amd64",
+    };
+    await env.DB.prepare("UPDATE installs SET manifest_json = ? WHERE id = ?")
+      .bind(JSON.stringify(manifest), installed.started.installId)
+      .run();
+    let captured: SourceBuildJobParams | undefined;
+    await startSourceBuildCore(
+      {
+        ...deps,
+        createJob: async (id, params) => {
+          captured = params;
+          return { id };
+        },
+      },
+      request,
+    );
+    expect(captured?.container).toMatchObject({
+      image,
+      port: 8080,
+      readinessPath: "/health",
+      environment: { MODE: "preserved" },
+      secrets: ["API_KEY"],
+    });
+    expect(captured).toMatchObject({ purpose: "update", installId: installed.started.installId });
+    const unchanged = await env.DB.prepare("SELECT manifest_json FROM installs WHERE id = ?")
+      .bind(installed.started.installId)
+      .first<{ manifest_json: string }>();
+    expect(JSON.parse(unchanged?.manifest_json ?? "null").catalog.runtime.image).toBe(
+      manifest.catalog.runtime.image,
+    );
+  });
+
   it("finds the newest commit of the branch the install follows", async () => {
     const r = await installFromRepository();
     const deps = { db: env.DB, listRefs: async () => refsAt(NEWER) };

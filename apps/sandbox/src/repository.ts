@@ -5,6 +5,7 @@ import {
   buildKeys,
   type CatalogManifest,
   catalogManifestSchema,
+  containerImportSchema,
   DEFAULT_SANDBOX_INSTANCE_TYPE,
   isCommitSha,
   type PackageManager,
@@ -19,6 +20,7 @@ import {
 } from "@appflare/schema";
 import { z } from "zod";
 import { type BuildDeps, BuildSteps, isBuildStage, type PackTarget } from "./build";
+import { pinContainerImage } from "./container-image";
 import { gitTokenEnv, tokenRedactions } from "./github";
 import { BuildLog } from "./log";
 import {
@@ -309,6 +311,80 @@ class RepositorySteps extends CommandRunner<BuildStage> {
       if (files.has(file)) contents.set(file, (await this.read(file)) ?? "");
     }
     try {
+      const containerText = contents.get("appflare.container.json");
+      if (request.container || containerText) {
+        if (!request.allowContainers)
+          throw new DetectionError(
+            "Container imports are experimental. Enable them on the Building apps settings page first.",
+          );
+        const spec = containerImportSchema.parse(
+          containerText ? JSON.parse(containerText) : request.container,
+        );
+        let runtime: Awaited<ReturnType<typeof pinContainerImage>>;
+        try {
+          runtime = await pinContainerImage(spec);
+        } catch (error) {
+          throw new DetectionError(`Container image: ${messageOf(error)}`);
+        }
+        const version = artifactVersion({
+          ref: checkedOut.ref,
+          sha: checkedOut.sha,
+          committedAt: checkedOut.committedAt,
+          now: this.now(),
+          avoid: request.avoidVersions ?? [],
+        });
+        const config = ".appflare-container/wrangler.json";
+        const manifest = catalogManifestSchema.parse({
+          ...repositoryManifest({
+            repo: request.repo,
+            ref: checkedOut.ref,
+            sha: checkedOut.sha,
+            version,
+            packageManager: "npm",
+            wranglerConfig: config,
+            wrangler: {
+              name: null,
+              vars: Object.keys(runtime.environment),
+              unsupported: [],
+              secrets: runtime.secrets,
+            },
+            pkg: null,
+            buildCommand: null,
+            secrets: runtime.secrets.map((name) => ({ name, label: name })),
+          }),
+          runtime,
+          requires: ["containers", "container-apps"],
+          install: {
+            tier: "sandbox",
+            packageManager: "npm",
+            wranglerConfig: config,
+            installDirs: [],
+            health: { path: runtime.readinessPath, mode: "no-server-errors" },
+          },
+          postInstall: [
+            {
+              type: "markdown",
+              title: "Temporary local files",
+              content:
+                "Local filesystem writes are temporary. Use external storage for persistent data.",
+            },
+          ],
+        });
+        return {
+          manifest,
+          version,
+          installs: false,
+          detection: {
+            packageManager: "npm",
+            wranglerConfig: config,
+            buildCommand: null,
+            buildCommandFrom: "none",
+            secretsFrom: "none",
+            unsupported: [],
+            installDirs: [],
+          },
+        };
+      }
       const pkg: PackageFacts | null = readPackageFacts(contents.get("package.json") ?? null);
       const packageManager: PackageManager =
         baseline?.install.packageManager ?? (pkg === null ? "npm" : detectPackageManager(files));
@@ -402,7 +478,11 @@ class RepositorySteps extends CommandRunner<BuildStage> {
         installs: pkg !== null || installDirs !== undefined,
       };
     } catch (error) {
-      if (error instanceof DetectionError) {
+      if (
+        error instanceof DetectionError ||
+        error instanceof z.ZodError ||
+        error instanceof SyntaxError
+      ) {
         throw new StepError<BuildStage>("detect", error.message, null, false);
       }
       throw error;

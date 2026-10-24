@@ -17,8 +17,8 @@
 # version Appflare builds with, copied the same way the Sandbox image installs
 # its own Node.
 
-ARG SANDBOX_IMAGE=docker.io/cloudflare/sandbox:0.12.10@sha256:35c932d3e5b35f28d350800cf00551cac46dfe28274afb54e16325b8d8f560d1
-ARG NODE_IMAGE=docker.io/library/node:22-bookworm-slim@sha256:48e4b67d85f87bd551df43704e24d252f56cc5f8e9718841aace50f19948f0f9
+ARG SANDBOX_IMAGE=docker.io/cloudflare/sandbox:0.12.14@sha256:b8175e89ae5efd83987ffd5056f57c28c390fd5706d42ef70fb669e275248e7b
+ARG NODE_IMAGE=docker.io/library/node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d
 
 # ---------------------------------------------------------------------------
 # The packer, built from this checkout with the lockfile's exact dependencies.

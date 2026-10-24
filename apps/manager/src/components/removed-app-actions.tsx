@@ -70,7 +70,7 @@ export function DeleteRetainedDialog({
         variant="alert"
         icon={BANNER_ICON.alert}
         title="Deleting data is permanent"
-        description="Each resource is deleted with everything in it, including every object in an R2 bucket."
+        description="Each resource is deleted with everything in it. Treat deletion as permanent; only D1 databases may be recoverable here, for up to seven days."
       />
       <div className="grid gap-1.5">
         <Text bold>Deleted</Text>

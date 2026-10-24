@@ -1,4 +1,5 @@
 import { createCsrfMiddleware, createStart } from "@tanstack/react-start";
+import { serverFunctionFetch } from "./server-function-fetch";
 
 /**
  * TanStack Start instance options.
@@ -23,4 +24,5 @@ const csrfMiddleware = createCsrfMiddleware({
 export const startInstance = createStart(() => ({
   defaultSsr: false,
   requestMiddleware: [csrfMiddleware],
+  serverFns: { fetch: serverFunctionFetch },
 }));

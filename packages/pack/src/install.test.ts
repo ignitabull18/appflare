@@ -331,6 +331,7 @@ describe("installDependencies", () => {
       path.join(bin, "yarn"),
       `#!/usr/bin/env node
 const { writeFileSync } = require("node:fs");
+if (process.argv.includes("--version")) { console.log("1.22.22"); process.exit(0); }
 writeFileSync(${JSON.stringify(seen)}, JSON.stringify({
   cwd: process.cwd(),
   args: process.argv.slice(2),
@@ -390,9 +391,12 @@ describe("yarn 2 and later", () => {
     file(".yarnrc.yml", "nodeLinker: node-modules\n");
     expect(packageManagerFlavor(root, path.join(root, "web"), "yarn")).toEqual({
       yarnBerry: true,
+      exactVersion: "4.5.1+sha512.abc",
     });
     file("web/package.json", JSON.stringify({ packageManager: "yarn@1.22.22" }));
-    expect(packageManagerFlavor(root, path.join(root, "web"), "yarn")).toEqual({});
+    expect(packageManagerFlavor(root, path.join(root, "web"), "yarn")).toEqual({
+      exactVersion: "1.22.22",
+    });
 
     rmSync(path.join(root, "package.json"));
     rmSync(path.join(root, "web/package.json"));
@@ -417,7 +421,12 @@ describe("yarn 2 and later", () => {
     file("yarn.lock", "");
     const { runs, run } = recorder();
     install([{ path: "." }], run, "yarn");
-    expect(runs).toEqual([{ cwd: ".", line: "yarn install --frozen-lockfile --ignore-scripts" }]);
+    expect(runs).toEqual([
+      {
+        cwd: ".",
+        line: "corepack yarn@1.22.22+sha512.abc install --frozen-lockfile --ignore-scripts",
+      },
+    ]);
   });
 
   it("installs a Berry checkout through corepack and says so", () => {
@@ -426,10 +435,10 @@ describe("yarn 2 and later", () => {
     const { runs, run } = recorder();
     const logs = install([{ path: "." }], run, "yarn");
     expect(runs).toEqual([
-      { cwd: ".", line: "corepack yarn install --immutable --mode=skip-build" },
+      { cwd: ".", line: "corepack yarn@4.9.1 install --immutable --mode=skip-build" },
     ]);
     expect(logs[0]).toBe(
-      "installing dependencies in . with yarn 2 or later: corepack yarn install --immutable --mode=skip-build",
+      "installing dependencies in . with yarn@4.9.1: corepack yarn@4.9.1 install --immutable --mode=skip-build",
     );
   });
 
@@ -466,7 +475,7 @@ describe("the npm version", () => {
 
   it("pins a later npm from packageManager, else engines.npm, and never npm 10 or earlier", () => {
     file("package.json", JSON.stringify({ packageManager: "npm@11.6.2" }));
-    expect(packageManagerFlavor(root, root, "npm")).toEqual({ npmMajor: 11 });
+    expect(packageManagerFlavor(root, root, "npm")).toEqual({ exactVersion: "11.6.2" });
     file("package.json", JSON.stringify({ engines: { node: ">=22", npm: ">=11.0.0" } }));
     expect(packageManagerFlavor(root, root, "npm")).toEqual({ npmMajor: 11 });
     file("package.json", JSON.stringify({ engines: { npm: ">=10" } }));
@@ -475,7 +484,7 @@ describe("the npm version", () => {
       "package.json",
       JSON.stringify({ packageManager: "npm@10.9.2", engines: { npm: ">=11" } }),
     );
-    expect(packageManagerFlavor(root, root, "npm")).toEqual({});
+    expect(() => packageManagerFlavor(root, root, "npm")).toThrow(/does not satisfy/);
     file("package.json", "not json");
     expect(packageManagerFlavor(root, root, "npm")).toEqual({});
   });
@@ -487,8 +496,8 @@ describe("the npm version", () => {
     file("package-lock.json", JSON.stringify({ lockfileVersion: 3 }));
     const { runs, run } = recorder();
     const logs = install([{ path: "." }], run, "npm");
-    expect(runs).toEqual([{ cwd: ".", line: "npx --yes npm@11.20.0 ci --ignore-scripts" }]);
-    expect(logs[0]).toMatch(/^installing dependencies in \. with npm 11: npx/);
+    expect(runs).toEqual([{ cwd: ".", line: "corepack npm@11.6.2 ci --ignore-scripts" }]);
+    expect(logs[0]).toMatch(/^installing dependencies in \. with npm@11.6.2: corepack/);
   });
 
   const OUT_OF_SYNC =
@@ -534,7 +543,7 @@ describe("the npm version", () => {
     file("package.json", JSON.stringify({ packageManager: "npm@12.0.0" }));
     const failing: InstallRunner = () => ({ status: 1, stdout: "", stderr: OUT_OF_SYNC });
     expect(() => install([{ path: "." }], failing, "npm")).toThrow(
-      /npx --yes npm@12 ci --ignore-scripts exited with 1/,
+      /corepack npm@12.0.0 ci --ignore-scripts exited with 1/,
     );
   });
 
@@ -672,7 +681,7 @@ describe("npm 11 from the Node.js the checkout asks for, and on ERESOLVE", () =>
     expect(packageManagerFlavor(root, root, "npm")).toEqual({});
     file(".nvmrc", "24\n");
     file("package.json", JSON.stringify({ packageManager: "npm@10.9.2" }));
-    expect(packageManagerFlavor(root, root, "npm")).toEqual({});
+    expect(packageManagerFlavor(root, root, "npm")).toEqual({ exactVersion: "10.9.2" });
   });
 
   const ERESOLVE =

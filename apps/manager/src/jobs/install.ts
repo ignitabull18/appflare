@@ -40,6 +40,7 @@ import { varsUseWorkerUrl } from "../installs/install-vars";
 import { workersDevUrl } from "../installs/post-install";
 import { appSlugLabel } from "../installs/source-review";
 import { workersDevSubdomain } from "../installs/workers-dev";
+import { configureContainerPhase } from "./container-app";
 import {
   accountWorkersProblem,
   entryBudgetLine,
@@ -607,6 +608,29 @@ export async function runInstall(ctx: JobContext): Promise<void> {
     });
     await checkAccountLimitsPhase(steps, { wanted: limitedCreates(toCreate), freeLimits });
 
+    if (manifest.catalog.runtime) {
+      if (
+        manifest.catalog.runtime.image.startsWith("registry.cloudflare.com/") &&
+        !manifest.catalog.runtime.image.startsWith(
+          `registry.cloudflare.com/${preflight.accountId}/`,
+        )
+      )
+        throw new InstallError(
+          "The container image must belong to the selected Cloudflare account.",
+        );
+      await run("check container imports", async ({ cf }) => {
+        const enabled = await db
+          .prepare("SELECT value FROM settings WHERE key = 'container_imports_enabled'")
+          .first<{ value: string }>();
+        if (enabled?.value !== "1")
+          throw new InstallError(
+            "Enable experimental container imports on the Building apps settings page first.",
+          );
+        await cf().containers.listApplications({ name: `${params.workerName}-container` });
+        return {};
+      });
+    }
+
     // Pipelines too: a token without its permission, or an account without
     // it, is refused before anything is created.
     if (streams.length > 0) {
@@ -1061,6 +1085,9 @@ export async function runInstall(ctx: JobContext): Promise<void> {
       await provisionEmailRoutingPhase(steps, params.installId, emailInspection, emailWorker);
     }
 
+    if (manifest.catalog.runtime)
+      await configureContainerPhase(steps, step, params.workerName, manifest.catalog.runtime);
+
     // 9. Health check at the app's health path, through route propagation
     // and error 1042. Everything is created by now, so the result is recorded
     // on the install and never fails the job.
@@ -1072,6 +1099,11 @@ export async function runInstall(ctx: JobContext): Promise<void> {
       manifest.catalog.install.health.mode,
       { installId: params.installId },
     );
+
+    if (manifest.catalog.runtime && health.status !== "verified")
+      throw new InstallError(
+        "The container did not pass its readiness check. Review its logs and retry.",
+      );
 
     // The address the admin asked for besides workers.dev, now that the
     // Worker serves; reported in the log, never a reason to fail.

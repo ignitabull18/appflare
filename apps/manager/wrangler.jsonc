@@ -17,8 +17,11 @@
   // fetches to same-account *.workers.dev hosts fail with `error code: 1042`.
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "issues": { "enabled": true },
+    "traces": { "enabled": false, "head_sampling_rate": 0.1, "persist": true }
   },
+  "upload_source_maps": true,
   "d1_databases": [
     {
       "binding": "DB",

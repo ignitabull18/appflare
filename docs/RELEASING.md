@@ -27,7 +27,7 @@ Releases, tagged `manager@<version>`. The installer is published to npm as
      baked in, stamps the catalog manifest's `source` with the version and commit,
      packs `apps/manager` into an unsigned intermediate, and checks it.
    - **sign** (holds only `APPFLARE_SIGNING_KEY`, runs only the packer): checks
-     that `manifest.json` is format 1, `appflare@<version>` with key id
+     that `manifest.json` is format 7 (or format 1 for a historical release retry), `appflare@<version>` with key id
      `appflare-2026-09`, and built from this repository's version commit (the
      embedded catalog manifest's `repo`, `source.sha`, and `source.ref`), signs
      it, and verifies the signature against the public keys embedded in
@@ -417,3 +417,18 @@ pnpm --filter @appflare/schema keygen --out <file outside any repository> --key-
 It writes the private key to the file (mode 0600, never overwriting) and prints
 only the path, the key id, and the public key. Add the public key to `keys.ts`,
 upload the file's contents as the secret, then delete the file or keep it offline.
+
+
+## Format 7 transition
+
+The manager and installer must understand format 7 before they consume a release
+containing private source-map modules or container runtime metadata. A manager
+that only reads format 1 cannot self-update directly from a format-7 artifact.
+Use an explicitly approved direct Worker deployment for the initial reader
+upgrade, retaining the previous deployment for rollback. Fresh installations
+must use the updated installer.
+Publish new format-7 catalog artifacts only after that reader is deployed.
+
+The sandbox image must be built, tested and published under a fresh immutable
+release version before its matching signed sandbox artifact is published. See
+[CLOUDFLARE-IMPROVEMENTS.md](CLOUDFLARE-IMPROVEMENTS.md) for staged acceptance.

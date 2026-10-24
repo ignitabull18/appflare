@@ -10,7 +10,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import type { PackageManager } from "@appflare/schema";
 import { buildCommandArgv, buildCommandProblem } from "@appflare/schema";
+import { installInvocation, packageManagerFlavor } from "./install.ts";
 
 /**
  * Runs a catalog manifest's `install.buildCommand` in the checkout, each of
@@ -112,9 +114,18 @@ export async function runBuildCommand(options: BuildCommandOptions): Promise<Bui
   const exitGraceMs = options.exitGraceMs ?? 5_000;
   const problem = buildCommandProblem(command);
   if (problem !== null) throw new BuildCommandError(`${label} ${problem}`);
-  const [program, ...args] = buildCommandArgv(command);
+  let [program, ...args] = buildCommandArgv(command);
   if (program === undefined) throw new BuildCommandError(`${label} is empty`);
 
+  if (["npm", "pnpm", "yarn", "bun"].includes(program)) {
+    const manager = program as PackageManager;
+    const flavor = packageManagerFlavor(checkoutDir, checkoutDir, manager);
+    if (flavor.exactVersion) {
+      const invocation = installInvocation(manager, "required", flavor);
+      args = [...invocation.args.slice(0, invocation.command === "corepack" ? 1 : 2), ...args];
+      program = invocation.command;
+    }
+  }
   const bin = path.join(path.resolve(checkoutDir), "node_modules", ".bin");
   const inherited = options.env.PATH ?? options.env.Path ?? "";
   const env: NodeJS.ProcessEnv = {

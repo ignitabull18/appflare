@@ -17,10 +17,8 @@ const MODULE_TYPE_BY_CONTENT_TYPE: Readonly<Record<string, ModuleType>> = {
   "text/plain": "text",
   "text/x-python": "python",
   "text/x-python-requirement": "python-requirement",
+  "application/source-map": "source-map",
 };
-
-/** Source maps wrangler attaches with `upload_source_maps`; the artifact carries none. */
-const SOURCE_MAP_CONTENT_TYPE = "application/source-map";
 
 /** One module of a Worker as wrangler would upload it. */
 export interface UploadModule {
@@ -66,7 +64,7 @@ function bareContentType(type: string): string {
  * part's name, bytes and type (taken from its content type, so the config's
  * module `rules` and wrangler's default rules decide it exactly as they
  * decide the upload), the main module (the metadata's `main_module`) first
- * and the rest by name. Source maps are left out. A Worker of static assets
+ * and the rest by name. Source maps are carried as private upload parts. A Worker of static assets
  * only has no modules.
  *
  * Throws {@link UploadFormError} for a service-worker Worker (the metadata
@@ -104,7 +102,6 @@ export async function readUploadForm(file: string): Promise<UploadModule[]> {
       throw new UploadFormError(`the upload's part ${rawName} is not a module file`);
     }
     const contentType = bareContentType(part.type);
-    if (contentType === SOURCE_MAP_CONTENT_TYPE) continue;
     const type = MODULE_TYPE_BY_CONTENT_TYPE[contentType];
     if (type === undefined) {
       throw new UploadFormError(

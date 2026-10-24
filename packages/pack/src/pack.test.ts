@@ -88,7 +88,7 @@ describe("pack + verify (integration)", () => {
     expect(result.slug).toBe("hello");
     expect(result.version).toBe("1.2.3"); // from source.ref v1.2.3
     expect(result.versionOrigin).toBe("tag");
-    expect(result.moduleCount).toBe(1);
+    expect(result.moduleCount).toBe(2); // Worker code and its private source map
     expect(result.assetCount).toBe(3); // robots.txt + .assetsignore are ignored
     expect(result.d1MigrationCount).toBe(2);
     expect(result.manifest.keyId).toBe("test-key");
@@ -115,7 +115,7 @@ describe("pack + verify (integration)", () => {
     const res = await verify({ dir: outDir, publicKey: keys.publicBase64 });
     expect(res.ok).toBe(true);
     expect(res.signed).toBe(true);
-    expect(res.checkedFiles).toBe(6); // 1 module + 3 assets + 2 migrations
+    expect(res.checkedFiles).toBe(7); // Code + map + 3 assets + 2 migrations
   });
 
   it("rejects a wrong public key", async () => {
@@ -200,7 +200,7 @@ describe("pack + verify (integration)", () => {
       const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       try {
         await expect(main(["verify", dir, "--hashes-only", "--check-upload"])).resolves.toBe(0);
-        expect(out).toHaveBeenCalledWith("OK: 605 files verified (unsigned)\n");
+        expect(out).toHaveBeenCalledWith("OK: 606 files verified (unsigned)\n");
       } finally {
         out.mockRestore();
         err.mockRestore();
@@ -223,7 +223,7 @@ describe("pack + verify (integration)", () => {
       writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest));
       writeFileSync(path.join(dir, path.basename(result.zipPath)), readFileSync(result.zipPath));
       const tooBig =
-        "hello@1.2.3 has 40.00 MiB of Worker modules, but Appflare uploads at most 32.00 MiB";
+        /hello@1\.2\.3 has 40\.\d+ MiB of Worker modules, but Appflare uploads at most 32\.00 MiB/;
 
       await expect(verify({ dir, hashesOnly: true, checkUpload: true })).rejects.toThrow(tooBig);
       // The CLI flag reaches verify.
@@ -282,7 +282,7 @@ describe("pack + verify unsigned", () => {
       const verified = await verify({ dir: outDir });
       expect(verified.signed).toBe(false);
       expect(verified.keyId).toBe("unsigned");
-      expect(verified.checkedFiles).toBe(6);
+      expect(verified.checkedFiles).toBe(7);
 
       // --require-signed turns an unsigned artifact into a failure.
       await expect(verify({ dir: outDir, requireSigned: true })).rejects.toThrow(/unsigned/);
@@ -754,7 +754,7 @@ describe("pack with resources.d1", () => {
       expect(
         readRange(res.zipPath, schemaFile?.offset ?? 0, schemaFile?.size ?? 0).toString(),
       ).toBe(SCHEMA);
-      await expect(verify({ dir: outDir })).resolves.toMatchObject({ ok: true, checkedFiles: 8 });
+      await expect(verify({ dir: outDir })).resolves.toMatchObject({ ok: true, checkedFiles: 9 });
 
       // verify holds the schema file to the packer's rule even when its hashes match.
       const manifestPath = path.join(outDir, "manifest.json");
@@ -1340,7 +1340,7 @@ describe("pack with a redirected wrangler config", () => {
       });
       expect(logs.some((l) => l.includes("redirects wrangler from wrangler.jsonc"))).toBe(true);
       // Bundled from the generated config's entry, not the declared one.
-      expect(res.moduleCount).toBe(1);
+      expect(res.moduleCount).toBe(2); // Includes the private source map
       expect(res.manifest.worker.mainModule).toBe("index.js");
       // Paths in the generated config resolve from its own directory.
       expect(res.assetCount).toBe(3);

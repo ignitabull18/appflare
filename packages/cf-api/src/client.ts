@@ -15,6 +15,7 @@ import { createQueues } from "./namespaces/queues";
 import { createR2 } from "./namespaces/r2";
 import { createR2Catalog } from "./namespaces/r2-catalog";
 import { createTokens } from "./namespaces/tokens";
+import { createTracing } from "./namespaces/tracing";
 import { createUsage } from "./namespaces/usage";
 import { createVectorize } from "./namespaces/vectorize";
 import { createVersions } from "./namespaces/versions";
@@ -24,6 +25,7 @@ import { createWorkflows } from "./namespaces/workflows";
 import { createZones } from "./namespaces/zones";
 
 export interface CloudflareClient {
+  readonly tracing: ReturnType<typeof createTracing>;
   readonly accountId: string;
   readonly accounts: ReturnType<typeof createAccounts>;
   readonly tokens: ReturnType<typeof createTokens>;
@@ -59,6 +61,7 @@ export interface CloudflareClient {
 export function createClient(options: ClientOptions): CloudflareClient {
   const http = createHttpApi(options);
   return {
+    tracing: createTracing(http),
     accountId: http.accountId,
     accounts: createAccounts(http),
     tokens: createTokens(http),

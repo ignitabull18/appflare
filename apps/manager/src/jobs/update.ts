@@ -25,7 +25,7 @@ import { unsignedTierRefusal } from "../catalog/sources";
 import { requireConnection } from "../cloudflare/connection.server";
 import { appPlace } from "../components/app-links";
 import { createDb } from "../db/client";
-import { installs, jobs, resources, source_builds } from "../db/schema";
+import { installs, jobs, resources, snapshots, source_builds } from "../db/schema";
 import { readSettings, SETTING } from "../db/settings";
 import { secretsToSet } from "../installs/derived-secrets";
 import { emailRoutingChangeNote, emailRoutingOfManifest } from "../installs/email-routing";
@@ -34,6 +34,7 @@ import { EMAIL_ROUTE_KIND } from "../installs/resource-kinds";
 import { appSlugLabel } from "../installs/source-review";
 import { wildcardHostnameOf } from "../installs/wildcard-domain-input";
 import { appBaseUrl, domainHostnames, workersDevSubdomain } from "../installs/workers-dev";
+import { configureContainerPhase, restoreContainerSnapshotPhase } from "./container-app";
 import { entryBudgetLine, entryBudgetProblem, entryJobCost } from "./entry-budget";
 import {
   entryBindings,
@@ -148,6 +149,7 @@ import {
 } from "./update/email-routing";
 import {
   accessUpdateRefusal,
+  activeVersionId,
   appliedDurableObjectTag,
   canarySkipReason,
   declaredLifecycleOf,
@@ -330,6 +332,7 @@ export async function runUpdate(ctx: JobContext): Promise<void> {
   /** Set once the new version exists / serves traffic, for the failure report. */
   let uploadedVersionId: string | null = null;
   let promoted = false;
+  let containerRecovered = false;
   /** Set once post-deploy migrations began: the database may be past the previous code. */
   let postDeployStarted = false;
   /** The install's record once the new version serves; written again if the job fails later. */
@@ -480,6 +483,8 @@ export async function runUpdate(ctx: JobContext): Promise<void> {
         catalogId: install.catalog_id,
         workerName: install.worker_name,
         fromVersion: install.catalog_version,
+        previousContainerRuntime:
+          parseStoredManifest(install.manifest_json)?.catalog.runtime ?? null,
         recordedVersionId: install.current_version_id,
         // Installs made before the tag was recorded applied every migration
         // of the manifest they were installed from.
@@ -587,6 +592,17 @@ export async function runUpdate(ctx: JobContext): Promise<void> {
     // An app of several Workers: the primary one is the install's Worker and
     // goes through the steps below; the others are uploaded and checked
     // before it and promoted, one by one, right before it.
+    if (Boolean(started.previousContainerRuntime) !== Boolean(manifest.catalog.runtime)) {
+      throw new JobError(
+        "An update cannot change between a Worker app and a container app. Install it separately to preserve the existing runtime.",
+      );
+    }
+    if (
+      manifest.catalog.runtime?.image.startsWith("registry.cloudflare.com/") &&
+      !manifest.catalog.runtime.image.startsWith(`registry.cloudflare.com/${started.accountId}/`)
+    ) {
+      throw new JobError("The container image must belong to the selected Cloudflare account.");
+    }
     const workers = entryWorkers(manifest, workerName);
     const primary = workers.find((w) => w.primary);
     if (primary === undefined) throw new JobError("the artifact has no primary Worker");
@@ -894,6 +910,10 @@ export async function runUpdate(ctx: JobContext): Promise<void> {
       if (fullDeploy !== null) {
         log.warn(
           `Durable Object migrations up to "${fullDeploy.new_tag}" are pending, so this update deploys the whole Worker at once instead of checking a preview first.`,
+        );
+      } else if (manifest.catalog.runtime) {
+        log.warn(
+          "Container updates deploy before their live readiness check; a failed check triggers restoration of the saved image and Worker version.",
         );
       } else if (path.scriptUpload) {
         log.warn(
@@ -1434,7 +1454,9 @@ export async function runUpdate(ctx: JobContext): Promise<void> {
       const deployed = await steps.reserve("the promotion", otherUpdates.length + 1, async () => {
         await promoteOthers();
         await run("skip canary", async ({ log }) => {
-          log.warn(`${fullDeploy !== null ? FULL_DEPLOY_REASON : EXPORTS_DEPLOY_REASON}.`);
+          log.warn(
+            `${fullDeploy !== null ? FULL_DEPLOY_REASON : manifest.catalog.runtime ? "Container updates need a full Worker deployment, followed by a live readiness check" : EXPORTS_DEPLOY_REASON}.`,
+          );
           return {};
         });
         scriptDeployStarted = true;
@@ -1448,7 +1470,9 @@ export async function runUpdate(ctx: JobContext): Promise<void> {
           log.info(
             fullDeploy !== null
               ? `Deployed version ${result.versionId} to all traffic with Durable Object migrations up to "${fullDeploy.new_tag}".`
-              : `Deployed version ${result.versionId} to all traffic with its new Durable Object exports.`,
+              : manifest.catalog.runtime
+                ? `Deployed container adapter version ${result.versionId}; the image rollout and live readiness check follow.`
+                : `Deployed version ${result.versionId} to all traffic with its new Durable Object exports.`,
             { versionId: result.versionId, bindings: bindingList(metadata) },
           );
           return { versionId: result.versionId };
@@ -1591,11 +1615,71 @@ export async function runUpdate(ctx: JobContext): Promise<void> {
       });
     }
 
-    // 9. Live health check, recorded rather than fatal: the version already serves.
     const url = `${appBase}${healthPath}`;
-    const health = await checkLiveHealthPhase(steps, step, url, healthMode, {
-      installId: params.installId,
-    });
+    const health = await (async () => {
+      try {
+        if (manifest.catalog.runtime)
+          await configureContainerPhase(steps, step, workerName, manifest.catalog.runtime);
+        const checked = await checkLiveHealthPhase(steps, step, url, healthMode, {
+          installId: params.installId,
+        });
+        if (manifest.catalog.runtime && checked.status !== "verified")
+          throw new JobError("The updated container did not pass readiness checks.");
+        return checked;
+      } catch (error) {
+        const originalFailureStep = steps.current;
+        if (manifest.catalog.runtime) {
+          await restoreContainerSnapshotPhase(steps, step, env.DB, params.jobId, workerName);
+          await run("restore container Worker and install record", async ({ cf, orm, log }) => {
+            const [saved] = await orm
+              .select()
+              .from(snapshots)
+              .where(eq(snapshots.id, params.jobId))
+              .limit(1);
+            if (!saved) throw new JobError("The container recovery snapshot is missing.");
+            await cf().versions.createDeployment(workerName, {
+              versions: [{ version_id: saved.worker_version_id, percentage: 100 }],
+              force: true,
+            });
+            const restored = activeVersionId(await cf().versions.listDeployments(workerName));
+            if (restored !== saved.worker_version_id)
+              throw new JobError(
+                "Cloudflare did not confirm the previous Worker deployment. Review the failed update before retrying.",
+              );
+            await orm
+              .update(installs)
+              .set({
+                catalog_version: saved.catalog_version ?? undefined,
+                current_version_id: saved.worker_version_id,
+                manifest_json: saved.manifest_json,
+                artifact_url: saved.artifact_url ?? undefined,
+                artifact_digest: saved.artifact_digest,
+                pin_sha: saved.pin_sha ?? undefined,
+                do_migration_tag: saved.do_migration_tag,
+                config_json: saved.config_json,
+                build_kind: saved.build_kind,
+                sandbox_image: saved.sandbox_image,
+                built_at: saved.built_at,
+                origin: saved.origin,
+                source_url: saved.source_url,
+                source_ref: saved.source_ref,
+                updated_at: new Date(now()),
+              })
+              .where(eq(installs.id, params.installId));
+            log.warn(
+              "The failed container update was returned to its previous image, Worker version and recorded configuration.",
+            );
+            return {};
+          });
+          promoted = false;
+          scriptDeployStarted = false;
+          servingRecord = null;
+          containerRecovered = true;
+          steps.current = originalFailureStep;
+        }
+        throw error;
+      }
+    })();
 
     // 10. Post-deploy migrations, once no request reaches the previous code
     // and everything else about the new version (queue consumers, cron
@@ -1879,7 +1963,12 @@ export async function runUpdate(ctx: JobContext): Promise<void> {
           `Appflare could not take the secrets this version introduced off the newest version of ${othersBack.map((n) => `"${n}"`).join(", ")}; the next upload would carry them.`,
         );
       }
-      if (wasPromoted && postDeployStarted) {
+      if (containerRecovered) {
+        log.error(
+          `Update failed at "${failedAt}". The deployed container update was automatically returned to the snapshot's image, Worker version and recorded configuration.`,
+          { versionId: version },
+        );
+      } else if (wasPromoted && postDeployStarted) {
         log.error(
           `Update failed at "${failedAt}" after version ${version} was promoted: it serves all traffic and is recorded as the install's version. Post-deploy D1 migrations already applied stay applied, and rolling back would not undo them, so the previous version may not work with the database. Retry the update, or restore the database from this update's snapshot together with a rollback.`,
           { versionId: version },

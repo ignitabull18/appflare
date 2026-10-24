@@ -113,11 +113,11 @@ describe("verifyArtifact", () => {
     const { dir } = await fixture({
       sign: key,
       mutate: (m) => {
-        (m as { format: number }).format = 7;
+        (m as { format: number }).format = 8;
       },
     });
     await expect(verifyArtifact({ dir, keys: [key.key] })).rejects.toThrow(
-      "the release is artifact format 7, and this installer reads format 1; run the latest installer (npx create-appflare@latest)",
+      "the release is artifact format 8, and this installer reads format 7; run the latest installer (npx create-appflare@latest)",
     );
   });
 

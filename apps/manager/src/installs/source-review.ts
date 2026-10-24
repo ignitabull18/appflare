@@ -131,7 +131,7 @@ export function reviewBuild(
   // The manager features it lists (`"secret-keys"` and the like) are this
   // manager's own, nothing the account must offer.
   const declared = accountRequirements(manifest.catalog.requires).filter(
-    (r) => r !== BUILD_CONTAINER_REQUIREMENT,
+    (r) => r !== BUILD_CONTAINER_REQUIREMENT || manifest.catalog.runtime !== undefined,
   );
   const services = appServices({ ...manifest.catalog, requires: declared }, facts).ids;
   const requires = [

@@ -595,6 +595,25 @@ function SourceCard({ build, review }: { build: SourceBuildView; review: SourceB
               </DescriptionItem>
             </>
           )}
+          {review.catalog.runtime && (
+            <DescriptionItem label="Container runtime">
+              <span className="grid gap-1">
+                <span className={mono}>{review.catalog.runtime.image}</span>
+                <span>
+                  Linux amd64 target; port {review.catalog.runtime.port}; one{" "}
+                  {review.catalog.runtime.instanceType} instance; temporary local files.
+                </span>
+              </span>
+            </DescriptionItem>
+          )}
+          {review.toolchains?.map((tool) => (
+            <DescriptionItem key={tool.directory} label={`Build tools: ${tool.directory}`}>
+              <span>
+                Node {tool.node}; {tool.manager} {tool.actual ?? "unknown"}
+                {tool.requested ? ` (requested ${tool.requested})` : " (image default)"}
+              </span>
+            </DescriptionItem>
+          ))}
           <DescriptionItem label="Built">
             <span className="grid gap-0.5">
               <span>

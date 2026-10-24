@@ -62,7 +62,7 @@ function packFor(catalog: unknown): Record<string, Uint8Array> {
     source: { ref: string; sha: string; version: string };
   };
   const manifest = {
-    format: 1,
+    format: (catalog as { runtime?: unknown }).runtime ? 7 : 1,
     app: c.slug,
     version: c.source.version,
     builtAt: "2026-09-25T12:00:00.000Z",
@@ -191,9 +191,10 @@ describe("runRepositoryBuild", () => {
       "git -C /workspace/appflare-build/source rev-parse HEAD",
       "git -C /workspace/appflare-build/source rev-parse --abbrev-ref HEAD",
     ]);
-    expect(sandbox.commands).toContain(
-      "pnpm install --frozen-lockfile --ignore-scripts --config.package-manager-strict=false",
-    );
+    expect(sandbox.commands.some((c) => c.startsWith("pnpm install"))).toBe(false);
+    expect(packedCatalog(sandbox)).toMatchObject({
+      install: { installDirs: [{ path: ".", lockfile: "required" }] },
+    });
     // The build command goes to the packer through the manifest; never run on its own.
     expect(sandbox.commands.some((c) => c === "pnpm run build")).toBe(false);
     // Its license comes from package.json, which may say NOASSERTION or SEE LICENSE IN.
@@ -583,5 +584,41 @@ describe("SandboxBuilds entrypoint", () => {
   it("says it builds from repositories", async () => {
     const info = await exports.SandboxBuilds.info();
     expect(info.features).toContain(SANDBOX_FEATURE_REPOSITORY);
+  });
+});
+
+describe("container repository detection", () => {
+  const digest = `sha256:${"a".repeat(64)}`;
+  const descriptor = {
+    image: `registry.cloudflare.com/account/web@${digest}`,
+    port: 8080,
+    readinessPath: "/health",
+  };
+  it("refuses container descriptors while the feature is off", async () => {
+    const sandbox = fake({ files: { "appflare.container.json": JSON.stringify(descriptor) } });
+    const failure = asFailure(await build(sandbox).promise);
+    expect(failure.stage).toBe("detect");
+    expect(failure.message).toContain("experimental");
+  });
+  it("uses the root descriptor ahead of form fields and skips repository installation", async () => {
+    const sandbox = fake({
+      files: { ...FILES, "appflare.container.json": JSON.stringify(descriptor) },
+    });
+    const result = asResult(
+      await build(
+        sandbox,
+        request({ allowContainers: true, container: { ...descriptor, port: 9000 } }),
+      ).promise,
+    );
+    expect(result.detected).toMatchObject({ buildCommand: null, installDirs: [] });
+    expect(packedCatalog(sandbox)).toMatchObject({
+      runtime: { image: descriptor.image, port: 8080 },
+      requires: ["containers", "container-apps"],
+      install: {
+        wranglerConfig: ".appflare-container/wrangler.json",
+        installDirs: [],
+        health: { path: "/health" },
+      },
+    });
   });
 });

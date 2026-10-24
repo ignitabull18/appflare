@@ -11,6 +11,7 @@ import {
   lockfilesOf,
   type PackageManager,
 } from "@appflare/schema";
+import { satisfies, validRange } from "semver";
 
 /**
  * The dependency install: once per directory of the catalog manifest's
@@ -89,6 +90,8 @@ export const PNPM_9_SPEC = "pnpm@9.15.9";
 
 /** What the checkout says about its package manager beyond the name. */
 export interface PackageManagerFlavor {
+  /** Exact version, including an optional Corepack integrity suffix. */
+  exactVersion?: string;
   /**
    * yarn 2 or later (Berry): `packageManager: "yarn@2..."` or later in the
    * nearest `package.json` at or above the directory that names yarn.
@@ -156,6 +159,23 @@ export function installInvocation(
   flavor: PackageManagerFlavor = {},
   options: InstallInvocationOptions = {},
 ): InstallInvocation {
+  if (flavor.exactVersion !== undefined) {
+    const { exactVersion, ...fallback } = flavor;
+    const base = installInvocation(packageManager, lockfile, fallback, options);
+    const args =
+      base.command === "npx"
+        ? base.args.slice(2)
+        : base.command === "corepack"
+          ? base.args.slice(1)
+          : base.args;
+    return packageManager === "bun"
+      ? { command: "npx", args: ["--yes", `bun@${exactVersion}`, ...args], env: base.env }
+      : {
+          command: "corepack",
+          args: [`${packageManager}@${exactVersion}`, ...args],
+          env: { ...base.env, COREPACK_ENABLE_DOWNLOAD_PROMPT: "0" },
+        };
+  }
   const frozen = lockfile === "required";
   const production = options.production === true;
   switch (packageManager) {
@@ -294,6 +314,38 @@ export function packageManagerFlavor(
   packageManager: PackageManager,
 ): PackageManagerFlavor {
   const dirs = dirsUpToRoot(checkoutDir, abs);
+  for (const dir of dirs) {
+    const field = readPackageJson(dir)?.packageManager;
+    if (field === undefined) continue;
+    if (typeof field !== "string")
+      throw new InstallError("packageManager must be an exact name@version.");
+    const match =
+      /^(npm|pnpm|yarn|bun)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+sha(?:224|256|384|512)\.[0-9a-fA-F]+)?)$/.exec(
+        field,
+      );
+    if (!match || match[1] !== packageManager)
+      throw new InstallError(
+        `packageManager ${JSON.stringify(field)} conflicts with ${packageManager} or is not an exact supported version.`,
+      );
+    const exactVersion = match[2] as string;
+    if (packageManager === "bun" && exactVersion.includes("+"))
+      throw new InstallError(
+        "Bun integrity suffixes are not supported; use an exact version without a suffix.",
+      );
+    const engines = readPackageJson(dir)?.engines;
+    if (
+      isRecord(engines) &&
+      typeof engines[packageManager] === "string" &&
+      !satisfies(exactVersion.split("+")[0] as string, engines[packageManager] as string)
+    )
+      throw new InstallError(`packageManager ${field} does not satisfy engines.${packageManager}.`);
+    return {
+      exactVersion,
+      ...(packageManager === "yarn" && Number(exactVersion.split(".")[0]) >= 2
+        ? { yarnBerry: true }
+        : {}),
+    };
+  }
   if (packageManager === "yarn") {
     for (const dir of dirs) {
       const major = packageManagerMajor(readPackageJson(dir)?.packageManager, "yarn");
@@ -526,6 +578,26 @@ function planInstall(
         'set lockfile "none" for it only when upstream ships no lockfile',
     );
   }
+  if (process.env.APPFLARE_SANDBOX_BUILD === "1") {
+    for (const dir of dirsUpToRoot(checkoutDir, abs)) {
+      const pkg = readPackageJson(dir);
+      const range = isRecord(pkg?.engines) ? pkg.engines.node : undefined;
+      if (typeof range === "string" && (!validRange(range) || !satisfies(process.version, range)))
+        throw new InstallError(
+          `This sandbox runs Node ${process.version}, which does not satisfy engines.node ${JSON.stringify(range)}.`,
+        );
+      for (const name of [".nvmrc", ".node-version"]) {
+        const filename = path.join(dir, name);
+        if (existsSync(filename)) {
+          const pin = readFileSync(filename, "utf8").trim().replace(/^v/, "");
+          if (!validRange(pin) || !satisfies(process.version, pin))
+            throw new InstallError(
+              `This sandbox runs Node ${process.version}, which does not satisfy ${name} ${JSON.stringify(pin)}.`,
+            );
+        }
+      }
+    }
+  }
   const flavor = packageManagerFlavor(checkoutDir, abs, packageManager);
   const production = entry.devDependencies === false;
   if (production && flavor.yarnBerry === true) {
@@ -589,19 +661,32 @@ function resolvedLockfileLine(
  * that cannot be installed, or at the first install that fails. An empty
  * list installs nothing (a repository without a `package.json`).
  */
-export function installDependencies(options: InstallOptions): void {
+export interface InstalledToolchain {
+  directory: string;
+  node: string;
+  manager: PackageManager;
+  requested: string | null;
+  actual: string | null;
+}
+
+export function installDependencies(options: InstallOptions): InstalledToolchain[] {
+  const toolchains: InstalledToolchain[] = [];
   const { checkoutDir, logger } = options;
   if (options.installDirs.length === 0) {
     logger(
       "install.installDirs is empty: no dependencies are installed; wrangler bundles the entry and its relative imports",
     );
-    return;
+    return [];
   }
   const run = options.run ?? spawnInstall;
   const planned = options.installDirs.map((entry) =>
     planInstall(checkoutDir, entry, options.packageManager),
   );
   for (const dir of planned) {
+    if (options.run === undefined)
+      logger(
+        `Build runtime: Node ${process.version}; package manager requested: ${dir.packageManager}${dir.flavor.exactVersion ? `@${dir.flavor.exactVersion}` : " (image default)"}.`,
+      );
     const extra = { production: dir.production };
     const describe = (flavor: PackageManagerFlavor) => {
       const invocation = installInvocation(dir.packageManager, dir.lockfile, flavor, extra);
@@ -621,21 +706,46 @@ export function installDependencies(options: InstallOptions): void {
       return { shown, res };
     };
     const pinned =
-      dir.flavor.yarnBerry === true
-        ? " 2 or later"
-        : dir.flavor.pnpm9 === true
-          ? " 9 (the lockfile is lockfileVersion 6, which pnpm 10 refuses)"
-          : dir.flavor.nodeMajor !== undefined && dir.flavor.npmMajor !== undefined
-            ? ` ${dir.flavor.npmMajor} (the checkout asks for Node.js ${dir.flavor.nodeMajor}, which ships npm ${dir.flavor.npmMajor})`
-            : dir.flavor.npmMajor !== undefined
-              ? ` ${dir.flavor.npmMajor}`
-              : "";
+      dir.flavor.exactVersion !== undefined
+        ? `@${dir.flavor.exactVersion}`
+        : dir.flavor.yarnBerry === true
+          ? " 2 or later"
+          : dir.flavor.pnpm9 === true
+            ? " 9 (the lockfile is lockfileVersion 6, which pnpm 10 refuses)"
+            : dir.flavor.nodeMajor !== undefined && dir.flavor.npmMajor !== undefined
+              ? ` ${dir.flavor.npmMajor} (the checkout asks for Node.js ${dir.flavor.nodeMajor}, which ships npm ${dir.flavor.npmMajor})`
+              : dir.flavor.npmMajor !== undefined
+                ? ` ${dir.flavor.npmMajor}`
+                : "";
     logger(
       `installing dependencies in ${dir.path} with ${dir.packageManager}${pinned}` +
         (dir.lockfile === "none" ? ", resolving them (upstream ships no lockfile)" : "") +
         (dir.production ? ", without devDependencies" : "") +
         `: ${describe(dir.flavor)}`,
     );
+    let actual: string | null = null;
+    if (options.run === undefined) {
+      const invocation = installInvocation(dir.packageManager, dir.lockfile, dir.flavor, extra);
+      const prefix =
+        invocation.command === "corepack"
+          ? invocation.args.slice(0, 1)
+          : invocation.command === "npx"
+            ? invocation.args.slice(0, 2)
+            : [];
+      const version = run({ ...invocation, args: [...prefix, "--version"] }, dir.abs, options.env);
+      if (version.status !== 0)
+        throw new InstallError(
+          `Could not run the requested ${dir.packageManager} version: ${version.stderr}`,
+        );
+      actual = version.stdout.trim().split("\n").at(-1) ?? null;
+      if (dir.flavor.exactVersion && actual !== dir.flavor.exactVersion.split("+")[0])
+        throw new InstallError(
+          `The requested ${dir.packageManager}@${dir.flavor.exactVersion} resolved to ${actual ?? "an unknown version"}.`,
+        );
+      logger(
+        `Actual build tools in ${dir.path}: Node ${process.version}, ${dir.packageManager} ${actual ?? "unknown"}.`,
+      );
+    }
     const before =
       dir.lockfile === "none" ? lockfileState(checkoutDir, dir.abs, dir.packageManager) : null;
     let { shown, res } = attempt(dir.flavor);
@@ -644,7 +754,8 @@ export function installDependencies(options: InstallOptions): void {
       res.status !== 0 &&
       dir.packageManager === "npm" &&
       dir.lockfile === "required" &&
-      dir.flavor.npmMajor === undefined
+      dir.flavor.npmMajor === undefined &&
+      dir.flavor.exactVersion === undefined
         ? newerNpmLockfileFailure(lockfilePath, `${res.stdout}\n${res.stderr}`)
         : null;
     if (refusal !== null) {
@@ -659,15 +770,33 @@ export function installDependencies(options: InstallOptions): void {
           `installing with npm ${FALLBACK_NPM_MAJOR}: ${describe(retry)}`,
       );
       ({ shown, res } = attempt(retry));
+      if (options.run === undefined) {
+        const version = run(
+          { command: "npx", args: ["--yes", npmSpec(FALLBACK_NPM_MAJOR), "--version"], env: {} },
+          dir.abs,
+          options.env,
+        );
+        if (version.status !== 0)
+          throw new InstallError("Could not verify the fallback npm version.");
+        actual = version.stdout.trim().split("\n").at(-1) ?? null;
+      }
     }
     if (res.status !== 0) {
       throw new InstallError(
         `installing dependencies in ${dir.path} failed: ${shown} exited with ${res.status}:\n${res.stdout}\n${res.stderr}`,
       );
     }
+    toolchains.push({
+      directory: dir.path,
+      node: process.version,
+      manager: dir.packageManager,
+      requested: dir.flavor.exactVersion ?? null,
+      actual,
+    });
     if (dir.lockfile === "none") {
       const after = lockfileState(checkoutDir, dir.abs, dir.packageManager);
       logger(resolvedLockfileLine(dir.path, before, after));
     }
   }
+  return toolchains;
 }

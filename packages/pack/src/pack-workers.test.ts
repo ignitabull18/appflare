@@ -67,12 +67,12 @@ describe("pack an app of several Workers", () => {
   });
 
   it("writes a manifest with the primary Worker first", () => {
-    expect(manifest.format).toBe(1);
+    expect(manifest.format).toBe(7);
     expect(manifest.worker.name).toBe("duo-web");
     expect(manifest.workers?.map((w) => w.name)).toEqual(["jobs"]);
     expect(result.workers.map((w) => [w.name, w.primary, w.moduleCount])).toEqual([
-      ["web", true, 1],
-      ["jobs", false, 1],
+      ["web", true, 2],
+      ["jobs", false, 2],
     ]);
   });
 
@@ -129,7 +129,7 @@ describe("pack an app of several Workers", () => {
 
   it("verifies every Worker's files", async () => {
     const res = await verify({ dir: outDir, hashesOnly: true, checkUpload: true });
-    expect(res.checkedFiles).toBe(4); // 2 modules + 1 asset + 1 migration
+    expect(res.checkedFiles).toBe(6); // 2 modules + 2 private maps + 1 asset + 1 migration
   });
 
   it("fails verify when another Worker's module is tampered with", async () => {

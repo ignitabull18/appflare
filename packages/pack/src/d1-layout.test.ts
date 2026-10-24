@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -57,7 +57,7 @@ describe("expandMigrationsGlob", () => {
       "20240115000000_index/migration.sql",
       "20240201000000_add_clicks/migration.sql",
     ]);
-    expect(path.relative(checkout, found[0]?.abs ?? "")).toBe(
+    expect(path.relative(realpathSync(checkout), found[0]?.abs ?? "")).toBe(
       path.join("prisma", "migrations", "20240101000000_init", "migration.sql"),
     );
   });

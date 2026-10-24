@@ -1,3 +1,7 @@
+vi.mock("./d1-recovery-card", () => ({ D1RecoveryCard: () => null }));
+vi.mock("./container-imports-card", () => ({ ContainerImportsCard: () => null }));
+vi.mock("../usage/diagnostics-card", () => ({ DiagnosticsCard: () => null }));
+
 import { Toasty } from "@cloudflare/kumo";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

@@ -353,6 +353,7 @@ export interface WorkflowInstanceStatusChange {
  */
 export interface WorkerObservability {
   enabled: boolean;
+  issues?: { enabled: boolean; [key: string]: unknown };
   /** 0 to 1; 1 records every request. */
   head_sampling_rate?: number;
   logs?: {

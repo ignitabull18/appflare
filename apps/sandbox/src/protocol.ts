@@ -173,6 +173,7 @@ export function installArgv(packageManager: PackageManager): string[] {
  */
 export const BUILD_ENV: Readonly<Record<string, string>> = {
   CI: "1",
+  APPFLARE_SANDBOX_BUILD: "1",
   // Let the image's pnpm build a checkout that pins another pnpm version.
   COREPACK_ENABLE_STRICT: "0",
   WRANGLER_SEND_METRICS: "false",

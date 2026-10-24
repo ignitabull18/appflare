@@ -197,7 +197,10 @@ export function managerArtifactProblems(
   expect(worker.mainModule === "index.js", `worker.mainModule is "${worker.mainModule}"`);
   expect(worker.modules[0]?.name === "index.js", "the first module is not index.js");
   for (const module of worker.modules) {
-    expect(/\.m?js$/.test(module.name), `unexpected worker module ${module.name}`);
+    expect(
+      module.type === "source-map" ? /\.m?js\.map$/.test(module.name) : /\.m?js$/.test(module.name),
+      `unexpected worker module ${module.name}`,
+    );
   }
   expect(
     worker.modules.length <= MANAGER_MAX_MODULES,

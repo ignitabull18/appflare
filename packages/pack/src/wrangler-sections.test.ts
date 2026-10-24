@@ -88,31 +88,39 @@ describe("keys the packer does not know", () => {
     expect(added.filter((key) => !Object.hasOwn(GENERATED_WRANGLER_KEYS, key))).toEqual([]);
   });
 
-  it("finds keys wrangler 4.136.2 does not know, such as k2 and analytics from 4.147", () => {
+  it("finds future keys that the installed wrangler does not know", () => {
     const raw = {
       name: "app",
       main: "src/index.ts",
-      k2: [{ binding: "STREAM" }],
-      analytics: { binding: "SQL" },
+      future_stream: [{ binding: "STREAM" }],
+      future_sql: { binding: "SQL" },
       // Declares nothing, so nothing would be dropped.
       later: null,
     };
-    expect(unknownWranglerKeys(raw)).toEqual(["k2", "analytics"]);
-    expect(() => refuseUnknownWranglerKeys(raw, "apps/api/wrangler.jsonc", "4.136.2")).toThrow(
+    expect(unknownWranglerKeys(raw)).toEqual(["future_stream", "future_sql"]);
+    expect(() => refuseUnknownWranglerKeys(raw, "apps/api/wrangler.jsonc", "4.152.0")).toThrow(
       UnknownWranglerKeyError,
     );
-    expect(() => refuseUnknownWranglerKeys(raw, "apps/api/wrangler.jsonc", "4.136.2")).toThrow(
-      'the wrangler config apps/api/wrangler.jsonc sets "k2" and "analytics", which the packer does not know: ' +
-        "wrangler 4.136.2, which it builds with, would drop them with no more than a warning, and the app would " +
+    expect(() => refuseUnknownWranglerKeys(raw, "apps/api/wrangler.jsonc", "4.152.0")).toThrow(
+      'the wrangler config apps/api/wrangler.jsonc sets "future_stream" and "future_sql", which the packer does not know: ' +
+        "wrangler 4.152.0, which it builds with, would drop them with no more than a warning, and the app would " +
         "run without them. A key wrangler added since needs a newer Appflare that reads or refuses it; if the app " +
-        'works without them, drop them with the catalog manifest\'s config patch { "k2": null, "analytics": null }',
+        'works without them, drop them with the catalog manifest\'s config patch { "future_stream": null, "future_sql": null }',
     );
   });
 
   it("passes an unknown key a Vite-written config fills with an empty list or object", () => {
-    const raw = { name: "app", main: "index.js", k2: [], analytics: {}, later: { items: [] } };
+    const raw = {
+      name: "app",
+      main: "index.js",
+      future_stream: [],
+      future_sql: {},
+      later: { items: [] },
+    };
     expect(unknownWranglerKeys(raw)).toEqual([]);
-    expect(unknownWranglerKeys({ ...raw, k2: [{ binding: "STREAM" }] })).toEqual(["k2"]);
+    expect(unknownWranglerKeys({ ...raw, future_stream: [{ binding: "STREAM" }] })).toEqual([
+      "future_stream",
+    ]);
   });
 
   it("does not look inside an environment, which the packer never builds", () => {

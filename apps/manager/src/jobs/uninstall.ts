@@ -865,9 +865,12 @@ export async function deleteDataResourcesPhase(
     }
 
     await run(`delete ${label} ${target.name}`, async ({ log, cf, orm }) => {
+      let confirmedDeletion = false;
       try {
-        if (await deleteResource(cf(), target)) log.info(`Deleted ${label} "${target.name}".`);
-        else {
+        if (await deleteResource(cf(), target)) {
+          confirmedDeletion = true;
+          log.info(`Deleted ${label} "${target.name}".`);
+        } else {
           log.warn(unrecordedNote(target.kind, target.name));
         }
       } catch (error) {
@@ -883,7 +886,12 @@ export async function deleteDataResourcesPhase(
       }
       await orm
         .update(resources)
-        .set({ deleted_at: new Date(now()) })
+        .set({
+          deleted_at: new Date(now()),
+          ...(target.kind === "d1"
+            ? { confirmed_deletion_at: confirmedDeletion ? new Date(now()) : null }
+            : {}),
+        })
         .where(eq(resources.id, target.id));
       // A bucket recorded by name only kept its catalog, if any, out of
       // reach too: a catalog is addressed by its bucket's name.

@@ -80,7 +80,7 @@ describe("two-step pack then sign", () => {
 
     const res = await verify({ dir: intermediate, hashesOnly: true });
     expect(res.signed).toBe(false);
-    expect(res.checkedFiles).toBe(6);
+    expect(res.checkedFiles).toBe(7);
 
     await expect(verify({ dir: intermediate })).rejects.toThrow(/manifest\.sig not found/);
     await expect(verify({ dir: intermediate, requireSigned: true })).rejects.toThrow(
@@ -105,7 +105,7 @@ describe("two-step pack then sign", () => {
     const res = await sign({ dir, signKeyEnv: KEY_ENV, keyId: "ci-key", env });
     expect(res.keyId).toBe("ci-key");
     expect(res.publicKey).toBe(keys.publicBase64); // derived from the private key
-    expect(res.checkedFiles).toBe(6);
+    expect(res.checkedFiles).toBe(7);
 
     expect(readFileSync(path.join(dir, "manifest.json")).equals(manifestBefore)).toBe(true);
     expect(readFileSync(path.join(dir, "hello-1.2.3.zip")).equals(zipBefore)).toBe(true);
@@ -133,7 +133,7 @@ describe("two-step pack then sign", () => {
     await sign({ dir, signKeyEnv: KEY_ENV, env });
     await expect(sign({ dir, signKeyEnv: KEY_ENV, env })).rejects.toThrow(/already exists/);
     const again = await sign({ dir, signKeyEnv: KEY_ENV, env, force: true });
-    expect(again.checkedFiles).toBe(6);
+    expect(again.checkedFiles).toBe(7);
   });
 
   it("fails without writing anything when the key env var is empty", async () => {

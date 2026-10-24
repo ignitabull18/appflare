@@ -325,6 +325,8 @@ describe("readSandboxStatus", () => {
           "config-patch",
           "assets-only",
           "build-env",
+          "patched-builds-2026-10",
+          "container-imports-v1",
         ],
       },
       problem: null,

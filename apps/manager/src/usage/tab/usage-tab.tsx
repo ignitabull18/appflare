@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Section } from "../../components/section";
 import { PauseAppButton } from "../../home/pause-resume-buttons";
 import { createAlertRuleFn, deleteAlertRuleFn, updateAlertRuleFn } from "../alert-rules.functions";
+import { DiagnosticsCard } from "../diagnostics-card";
 import { setObservabilityFn } from "../observability.functions";
 import type { UsageTabData } from "../tab";
 import { getUsageTab, setAppSpend } from "../tab.functions";
@@ -167,6 +168,7 @@ export function UsageTab({
         actions={actions}
         pauseAction={pauseAction}
       />
+      {isAdmin && <DiagnosticsCard installId={installId} />}
       <RecentActivity events={data.events} channels={data.spend.channels} />
     </>
   );

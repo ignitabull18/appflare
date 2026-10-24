@@ -49,6 +49,13 @@ export function createD1(http: HttpApi) {
       return http.result("GET", http.acct(`/d1/database/${enc(databaseId)}`));
     },
 
+    /** Restore a recently deleted database as retained data. */
+    undeleteDatabase(databaseId: string, newName: string): Promise<D1Database> {
+      return http.result("POST", http.acct(`/d1/database/${enc(databaseId)}/undelete`), {
+        json: { new_name: newName },
+      });
+    },
+
     /** `DELETE /d1/database/{uuid}`. */
     deleteDatabase(databaseId: string): Promise<unknown> {
       return http.result("DELETE", http.acct(`/d1/database/${enc(databaseId)}`));

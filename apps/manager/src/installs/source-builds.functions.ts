@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import {
+  type ArtifactManifest,
   accessNeededOnlyIfProtected,
   type CatalogManifest,
   type CatalogSecret,
@@ -118,6 +119,7 @@ export const startSourceBuild = createServerFn({ method: "POST" })
 
 /** What the review shows about a finished build. */
 export interface SourceBuildReview {
+  toolchains?: ArtifactManifest["toolchains"];
   catalog: CatalogManifest;
   varFields: InstallVarField[];
   creates: Array<{ kind: string; binding: string }>;
@@ -275,6 +277,7 @@ export const getSourceBuild = createServerFn({ method: "GET" })
         ? await sourceUpdateNeeds(env.DB, install, manifest)
         : { needsSecrets: [], skipsPreview: null };
       review = {
+        toolchains: manifest.toolchains,
         catalog: manifest.catalog,
         varFields: installVarFields(manifest),
         creates: facts.creates,

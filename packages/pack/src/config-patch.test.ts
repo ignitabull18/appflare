@@ -332,7 +332,7 @@ describe("Nodrix: the config's build replaced by the catalog's build commands", 
       dir,
       catalog("nodrix", { ...install, configPatch: { build: null } }),
     );
-    expect(result.moduleCount).toBe(1);
+    expect(result.moduleCount).toBe(2);
     expect(logs).toContain("  build: removed");
     expect(readPatched(dir)).not.toHaveProperty("build");
   }, 120_000);

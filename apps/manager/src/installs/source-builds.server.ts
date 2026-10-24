@@ -7,6 +7,7 @@ import {
   type CatalogManifest,
   type CatalogSecret,
   catalogWorkerName,
+  containerImportSchema,
   githubRepositorySchema,
   gitRefSchema,
   type HyperdriveDeclaration,
@@ -146,6 +147,7 @@ export type StartSourceBuildRequest =
       kind: "repository";
       /** What the admin typed: a GitHub URL or `owner/repo`. */
       repository: string;
+      container?: import("@appflare/schema").RepositoryBuildRequest["container"];
       /** A branch, tag or commit; empty for the URL's, else the default branch. */
       ref?: string;
       buildCommand?: BuildCommandChoice;
@@ -159,7 +161,7 @@ export type StartSourceBuildRequest =
       buildCommand?: BuildCommandChoice;
       costConfirmed: boolean;
     }
-  | { kind: "rebuild"; installId: string; costConfirmed: boolean };
+  | { kind: "rebuild"; installId: string; containerImage?: string; costConfirmed: boolean };
 
 /**
  * A repository's branches and tags, and the GitHub access token that read
@@ -253,6 +255,7 @@ interface BuildPlan {
   repo: string;
   ref: string | null;
   buildCommand: BuildCommandChoice;
+  container?: import("@appflare/schema").RepositoryBuildRequest["container"];
   baseline?: CatalogManifest;
   avoidVersions: string[];
 }
@@ -280,6 +283,7 @@ async function planBuild(
       origin: "repository",
       appSlug: null,
       repo: parsed.repo,
+      ...(request.container === undefined ? {} : { container: request.container }),
       ref: refOf(request.ref, parsed.ref),
       buildCommand: request.buildCommand ?? { mode: "detect" },
       avoidVersions: [],
@@ -328,6 +332,9 @@ async function planBuild(
     }
     if (baseline === undefined) throw fail("The catalog manifest of this app is not available.");
   }
+  if (request.containerImage !== undefined && !installedCatalog(install.manifest_json)?.runtime) {
+    throw fail("Only an installed container app can change its published image.");
+  }
   return {
     installId: install.id,
     purpose: "update",
@@ -335,6 +342,17 @@ async function planBuild(
     appSlug: install.origin === "source" ? installAppKey(install) : null,
     repo,
     ref: install.source_ref,
+    ...(() => {
+      const runtime = installedCatalog(install.manifest_json)?.runtime;
+      if (!runtime) return {};
+      const { architecture: _architecture, ...container } = runtime;
+      return {
+        container: containerImportSchema.parse({
+          ...container,
+          ...(request.containerImage === undefined ? {} : { image: request.containerImage }),
+        }),
+      };
+    })(),
     buildCommand: await lastBuildCommand(deps.db, install.id),
     ...(baseline === undefined ? {} : { baseline }),
     // The build request takes at most 16: the newest snapshots'.
@@ -498,6 +516,14 @@ export async function startSourceBuildCore(
     ref: resolved.ref,
     commit: resolved.commit,
     buildCommand: plan.buildCommand,
+    container: plan.container,
+    allowContainers:
+      (
+        await deps.db
+          .prepare("SELECT value FROM settings WHERE key = ?1")
+          .bind("container_imports_enabled")
+          .first<{ value: string }>()
+      )?.value === "1",
     ...(plan.baseline === undefined ? {} : { baseline: plan.baseline }),
     avoidVersions: plan.avoidVersions,
     ...(plan.baseline?.install.container?.instanceType === undefined

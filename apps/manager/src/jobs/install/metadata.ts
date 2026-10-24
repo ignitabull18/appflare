@@ -360,6 +360,8 @@ export function buildScriptMetadata(input: ScriptMetadataInput): ScriptMetadata 
     compatibility_flags: manifest.worker.compatibilityFlags,
     bindings,
   };
+  if (manifest.catalog.runtime)
+    metadata.containers = [{ name: `${workerName}-container`, class_name: "AppContainer" }];
   if (assetsJwt !== null) {
     if (manifest.assets.binding) bindings.push({ type: "assets", name: manifest.assets.binding });
     metadata.assets = { jwt: assetsJwt, config: { ...manifest.assets.config } };
@@ -391,6 +393,7 @@ export function buildScriptMetadata(input: ScriptMetadataInput): ScriptMetadata 
 
 /** Module part content types, matching wrangler 4.136.2's `moduleTypeMimeType`. */
 const MODULE_CONTENT_TYPE: Record<ModuleType, string> = {
+  "source-map": "application/source-map",
   esm: "application/javascript+module",
   commonjs: "application/javascript",
   "compiled-wasm": "application/wasm",

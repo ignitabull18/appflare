@@ -215,7 +215,7 @@ describe("pack a checkout without a package.json (installDirs: [])", () => {
     setUp({ ...STATIC, main: "src/index.js" }, catalog({}, { buildCommand: "node gen.mjs" }));
     const res = await run();
     expect(res.manifest.worker.mainModule).toBe("index.js");
-    expect(res.manifest.worker.modules.map((m) => m.name)).toEqual(["index.js"]);
+    expect(res.manifest.worker.modules.map((m) => m.name)).toEqual(["index.js", "index.js.map"]);
     const [module] = res.manifest.worker.modules;
     if (module === undefined) throw new Error("no module");
     const zip = readFileSync(res.zipPath);
@@ -233,4 +233,62 @@ describe("pack a checkout without a package.json (installDirs: [])", () => {
     setUp({ ...STATIC, main: "src/index.js" });
     await expect(run()).rejects.toThrow(/wrangler deploy --dry-run failed/);
   }, 120_000);
+});
+
+describe("published-image container pack", () => {
+  it("refuses repository links in the generated adapter path", async () => {
+    setUp(
+      {},
+      catalog(
+        {
+          runtime: {
+            image: `docker.io/library/nginx@sha256:${"a".repeat(64)}`,
+            port: 80,
+            architecture: "linux/amd64",
+          },
+          requires: ["containers", "container-apps"],
+        },
+        { wranglerConfig: ".appflare-container/wrangler.json" },
+      ),
+    );
+    symlinkSync(parent, path.join(dir, ".appflare-container"));
+    await expect(run()).rejects.toThrow("cannot be a link");
+    expect(existsSync(path.join(parent, "worker.js"))).toBe(false);
+  });
+  it("generates the maintained adapter without running repository code and keeps maps private", async () => {
+    const image = `docker.io/library/nginx@sha256:${"a".repeat(64)}`;
+    setUp(
+      {},
+      catalog(
+        {
+          runtime: { image, port: 80, architecture: "linux/amd64" },
+          requires: ["containers", "container-apps"],
+        },
+        { wranglerConfig: ".appflare-container/wrangler.json" },
+      ),
+    );
+    // A malicious or accidental entry in the checkout is not used by this import path.
+    write("worker.js", 'throw new Error("repository code must not run");');
+    const result = await run();
+    expect(result.manifest.format).toBe(7);
+    expect(result.manifest.catalog.runtime?.image).toBe(image);
+    expect(result.manifest.worker.bindings).toContainEqual(
+      expect.objectContaining({
+        name: "APP_CONTAINER",
+        type: "durable_object_namespace",
+        class_name: "AppContainer",
+      }),
+    );
+    expect(result.manifest.worker.modules.some((module) => module.type === "source-map")).toBe(
+      true,
+    );
+    expect(result.manifest.assets?.files.some((file) => file.route.endsWith(".map")) ?? false).toBe(
+      false,
+    );
+    expect(readFileSync(path.join(dir, ".appflare-container/worker.js"), "utf8")).toContain(
+      "extends DurableObject",
+    );
+    const verified = await verify({ dir: outDir, hashesOnly: true, checkUpload: false });
+    expect(verified.checkedFiles).toBeGreaterThan(0);
+  });
 });

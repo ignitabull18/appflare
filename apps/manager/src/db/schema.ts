@@ -317,6 +317,8 @@ export const resources = sqliteTable(
     created_at: timestamp("created_at").notNull(),
     /** Deleted from the account (by an uninstall). */
     deleted_at: timestamp("deleted_at"),
+    /** Only set after Cloudflare confirms a deletion performed by this manager. */
+    confirmed_deletion_at: timestamp("confirmed_deletion_at"),
     /** Kept in the account when its install was uninstalled, so it stays findable. */
     retained_at: timestamp("retained_at"),
     /** Who deletes it: Appflare, or the app's own installer (never Appflare). */
@@ -400,6 +402,7 @@ export const snapshots = sqliteTable(
     job_id: text("job_id")
       .notNull()
       .references(() => jobs.id),
+    container_state_json: text("container_state_json"),
     worker_version_id: text("worker_version_id").notNull(),
     /** `{ [database_id]: bookmark }` */
     d1_bookmarks_json: text("d1_bookmarks_json").notNull(),

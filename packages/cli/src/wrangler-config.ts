@@ -14,6 +14,7 @@ export interface GeneratedWranglerConfig {
   compatibility_date: string;
   compatibility_flags: string[];
   no_bundle: true;
+  upload_source_maps?: true;
   find_additional_modules: true;
   base_dir: string;
   rules: { type: WranglerRuleType; globs: string[] }[];
@@ -45,7 +46,7 @@ export type WranglerRuleType =
   | "PythonRequirement";
 
 /** Artifact module type -> wrangler module rule type. */
-const RULE_TYPES: Record<ModuleType, WranglerRuleType> = {
+const RULE_TYPES: Record<Exclude<ModuleType, "source-map">, WranglerRuleType> = {
   esm: "ESModule",
   commonjs: "CommonJS",
   text: "Text",
@@ -66,6 +67,7 @@ export function moduleRules(
 ): { type: WranglerRuleType; globs: string[] }[] {
   const rulesByType = new Map<WranglerRuleType, string[]>();
   for (const module of modules) {
+    if (module.type === "source-map") continue;
     const type = RULE_TYPES[module.type];
     rulesByType.set(type, [...(rulesByType.get(type) ?? []), module.name]);
   }
@@ -217,6 +219,9 @@ export function buildWranglerConfig(
     // Exact file names as globs (wrangler's glob-to-regexp treats only `*`
     // specially without `extended`), so nothing else is picked up.
     no_bundle: true,
+    ...(worker.modules.some((module) => module.type === "source-map")
+      ? { upload_source_maps: true as const }
+      : {}),
     find_additional_modules: true,
     base_dir: UNPACKED_WORKER_DIR,
     rules: moduleRules(worker.modules),

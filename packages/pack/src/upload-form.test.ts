@@ -49,6 +49,7 @@ describe("readUploadForm", () => {
       ["aaf4-notes.txt", "data", false],
       ["b12e-logo.svg", "text", false],
       ["chunks/legacy.cjs", "commonjs", false],
+      ["index.js.map", "source-map", false],
     ]);
     expect(modules[3]?.bytes.toString("utf8")).toBe("<svg/>");
     expect([...(modules[1]?.bytes ?? [])]).toEqual([0, 97]);

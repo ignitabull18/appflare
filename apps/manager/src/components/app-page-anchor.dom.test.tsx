@@ -1,3 +1,5 @@
+vi.mock("../usage/diagnostics-card", () => ({ DiagnosticsCard: () => null }));
+
 import { Toasty } from "@cloudflare/kumo";
 import { act, type ComponentType } from "react";
 import { createRoot, type Root } from "react-dom/client";

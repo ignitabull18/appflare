@@ -1,4 +1,4 @@
-import { parseRepositoryInput } from "@appflare/schema";
+import { containerImportSchema, parseRepositoryInput } from "@appflare/schema";
 import { Input, LayerDialog, Text } from "@cloudflare/kumo";
 import { type FormEvent, type RefObject, useId, useState } from "react";
 import { GITHUB_ACCESS_PLACE } from "../github/tokens";
@@ -53,6 +53,9 @@ export function RepositoryBuildDialog({
   const formId = useId();
   const [repository, setRepository] = useState(prefill ?? "");
   const [ref, setRef] = useState("");
+  const [containerImage, setContainerImage] = useState("");
+  const [containerPort, setContainerPort] = useState("8080");
+  const [readinessPath, setReadinessPath] = useState("/");
   const [buildCommand, setBuildCommand] = useState(INITIAL_BUILD_COMMAND);
   const [costConfirmed, setCostConfirmed] = useState(false);
   const [pending, setPending] = useState(false);
@@ -72,10 +75,30 @@ export function RepositoryBuildDialog({
     setPending(true);
     setError(null);
     try {
+      const parsedContainer =
+        containerImage.trim() === ""
+          ? undefined
+          : containerImportSchema.safeParse({
+              image: containerImage.trim(),
+              port: Number(containerPort),
+              readinessPath,
+            });
+      if (parsedContainer && !parsedContainer.success) {
+        const field = parsedContainer.error.issues[0]?.path[0];
+        throw new Error(
+          field === "port"
+            ? "Application port must be a whole number from 1 to 65535."
+            : field === "readinessPath"
+              ? "Readiness path must start with one / and contain no spaces, query or fragment."
+              : "Published image must name a Docker Hub or Cloudflare registry image with a tag or SHA-256 digest.",
+        );
+      }
+      const container = parsedContainer?.data;
       const { jobId } = await startSourceBuild({
         data: {
           kind: "repository",
           repository: repository.trim(),
+          ...(container === undefined ? {} : { container }),
           ...(ref.trim() === "" ? {} : { ref: ref.trim() }),
           buildCommand: buildCommandChoice(buildCommand),
           costConfirmed,
@@ -92,6 +115,9 @@ export function RepositoryBuildDialog({
   function clear() {
     setRepository("");
     setRef("");
+    setContainerImage("");
+    setContainerPort("8080");
+    setReadinessPath("/");
     setBuildCommand(INITIAL_BUILD_COMMAND);
     setCostConfirmed(false);
     setError(null);
@@ -147,6 +173,39 @@ export function RepositoryBuildDialog({
               disabled={pending}
               description="Optional. A branch or tag can be checked for changes later; a commit never moves."
             />
+            <details>
+              <summary>Use a published container image</summary>
+              <div className="grid gap-3 pt-3">
+                <Text>
+                  Experimental. Enable container imports on the Building apps settings page. A
+                  repository can supply appflare.container.json, which takes precedence over these
+                  fields. Container imports use the published image and do not run repository build
+                  commands.
+                </Text>
+                <Input
+                  label="Published image"
+                  value={containerImage}
+                  onChange={(e) => setContainerImage(e.currentTarget.value)}
+                  placeholder="docker.io/owner/app:version"
+                  disabled={pending}
+                />
+                <Input
+                  label="Application port"
+                  value={containerPort}
+                  onChange={(e) => setContainerPort(e.currentTarget.value)}
+                  disabled={pending}
+                />
+                <Input
+                  label="Readiness path"
+                  value={readinessPath}
+                  onChange={(e) => setReadinessPath(e.currentTarget.value)}
+                  disabled={pending}
+                />
+                <Text>
+                  Local files are temporary. Persistent data must use an external service.
+                </Text>
+              </div>
+            </details>
             <BuildCommandField
               value={buildCommand}
               onChange={setBuildCommand}

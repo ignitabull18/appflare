@@ -16,6 +16,15 @@ describe("buildWranglerConfig", () => {
     expect(buildWranglerConfig(manifest, { name: "appflare" })).toMatchSnapshot();
   });
 
+  it("uploads source maps separately from runtime module rules", () => {
+    const copy = structuredClone(manifest);
+    const first = copy.worker.modules[0];
+    if (!first) throw new Error("No fixture module");
+    copy.worker.modules.push({ ...first, name: "index.js.map", type: "source-map" });
+    const config = buildWranglerConfig(copy, { name: "appflare" });
+    expect(config.upload_source_maps).toBe(true);
+    expect(config.rules.every((rule) => !rule.globs.includes("index.js.map"))).toBe(true);
+  });
   it("never carries an account id or resource ids", () => {
     const json = JSON.stringify(buildWranglerConfig(manifest, { name: "appflare" }));
     expect(json).not.toMatch(/account_id|database_id|"id"|namespace_id|preview_id/);
