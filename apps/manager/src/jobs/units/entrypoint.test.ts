@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import type { WorkflowSandboxRpc } from "../workflow-sandbox";
 import { selfUnits } from "./client";
 
 /**
@@ -20,6 +21,11 @@ import { selfUnits } from "./client";
 const self = selfUnits(env);
 
 describe("JobUnits over the SELF binding", () => {
+  it("exposes the fresh sandbox lookup without recursing through SELF", async () => {
+    const rpc = self as unknown as WorkflowSandboxRpc;
+    await expect(rpc.sandboxInfo()).resolves.toBeNull();
+  }, 30_000);
+
   it("is bound", () => {
     expect(self).toBeDefined();
   });

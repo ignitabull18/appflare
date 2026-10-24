@@ -1,7 +1,7 @@
 import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { job_logs, jobs } from "../db/schema";
-import { sandboxBinding } from "../sandbox/binding";
+import { sandboxBinding, sandboxInfo } from "../sandbox/binding";
 import { firstLine } from "../sandbox/failure-hint";
 import type { JobEnv, StepRunner } from "./run-job";
 import { JobError, type JobSteps } from "./steps";
@@ -16,14 +16,10 @@ import { JobError, type JobSteps } from "./steps";
  * log lines (not the API request lines) into this job's log, so the
  * progress shows here too; a `step.sleep` separates polls. The enable job
  * ends by deploying a new version of Appflare with the `SANDBOX` binding.
- * An instance is expected to pick up that version when it resumes after a
- * sleep (seen for an instance cut off by such a deploy; not yet verified
- * live for a sleeping one), so once the enable job succeeded the wait goes
- * on, a minute at a time, until the binding answers in this invocation, and
- * gives up after a few minutes asking for the job to be started again. Having
- * the binding is not enough: one to a sandbox Worker that was deleted (a
- * disable that stopped before its last step leaves it) is there, but every
- * call through it fails.
+ * Workflows can retain the pre-connection bindings across sleeps. Automatic
+ * setup dependents use the serving manager's SELF RPC surface instead, so
+ * info, builds and artifact reads reach its current sandbox binding. A
+ * sandbox that was deleted still fails its info check and is waited for.
  */
 
 /** The job params field: the enable job to wait for. */
@@ -58,7 +54,7 @@ async function sandboxAnswers(env: JobEnv): Promise<boolean> {
   const binding = sandboxBinding(env);
   if (binding === undefined) return false;
   try {
-    await binding.info();
+    await sandboxInfo(binding);
     return true;
   } catch {
     return false;
@@ -123,7 +119,7 @@ export async function awaitSandboxEnabledPhase(
           "sandbox builds are on now, but this job still runs on the version of Appflare from before they were connected; start it again",
         );
       }
-      // Ends this invocation, so the instance resumes on the connected version.
+      // Retry while the serving manager finishes exposing its connected binding.
       await step.sleep(`${pollName(poll)} resume`, "1 minute");
       continue;
     }

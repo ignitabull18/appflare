@@ -20,6 +20,7 @@ import { withBoundedStepNames } from "./step-names";
 import { runUninstall } from "./uninstall";
 import type { JobUnitsApi } from "./units/units";
 import { runUpdate } from "./update";
+import { withWorkflowSandbox } from "./workflow-sandbox";
 
 /**
  * Job dispatch for `JobWorkflow` (one Workflow class, dispatching on
@@ -170,7 +171,7 @@ export async function runJob(
     params: parsed.data,
     // A name the engine would refuse ends the job, whatever it names.
     step: withBoundedStepNames(step),
-    env: countedEnv(env, budget),
+    env: countedEnv(withWorkflowSandbox(env, parsed.data), budget),
     deps,
     budget,
   };

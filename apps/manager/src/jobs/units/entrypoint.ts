@@ -8,11 +8,13 @@ import type { WorkflowRepairReport } from "../../installs/workflow-repair.server
 import type { DeliveryReport } from "../../notifications/deliver.server";
 import type { HealthSweepReport } from "../../notifications/health-sweep.server";
 import { createNotificationUnits, type NotificationUnitResult } from "../../notifications/units";
+import { sandboxBinding } from "../../sandbox/binding";
 import type { SetSandboxBindingResult, WaitForSandboxContainersResult } from "../../sandbox/units";
 import type { CheckUnitResult } from "../../usage/watcher-check.server";
 import type { ShardUnitResult } from "../../usage/watcher-shard.server";
 import { createSpendWatcherUnits, type SpendWatcherResult } from "../../usage/watcher-unit";
 import type { CronTriggerScan } from "../install/cron-limit";
+import { currentSandbox } from "../workflow-sandbox";
 import type {
   ProtectInstallUnitResult,
   SyncInstallAccessResult,
@@ -45,6 +47,38 @@ import {
  * the API token and the GitHub token come from this Worker's own secrets.
  */
 export class JobUnits extends WorkerEntrypoint<Env> {
+  async sandboxInfo(): Promise<unknown> {
+    const binding = sandboxBinding(this.env);
+    return binding === undefined ? null : binding.info();
+  }
+  sandboxFetch(input: string, init?: RequestInit): Promise<Response> {
+    return currentSandbox(this.env).fetch(input, init);
+  }
+  sandboxBuild(request: unknown): Promise<unknown> {
+    return currentSandbox(this.env).build(request);
+  }
+  sandboxBuildRepository(request: unknown): Promise<unknown> {
+    return currentSandbox(this.env).buildRepository(request);
+  }
+  sandboxProgress(request: unknown): Promise<unknown> {
+    return currentSandbox(this.env).progress(request);
+  }
+  sandboxCleanup(request: unknown): Promise<unknown> {
+    return currentSandbox(this.env).cleanup(request);
+  }
+  sandboxDeploySelfManaged(request: unknown): Promise<unknown> {
+    return currentSandbox(this.env).deploySelfManaged(request);
+  }
+  sandboxDestroySelfManaged(request: unknown): Promise<unknown> {
+    return currentSandbox(this.env).destroySelfManaged(request);
+  }
+  sandboxSelfManagedStatus(request: unknown): Promise<unknown> {
+    return currentSandbox(this.env).selfManagedStatus(request);
+  }
+  sandboxGithubFetch(request: unknown): Promise<Response> {
+    return currentSandbox(this.env).githubFetch(request);
+  }
+
   uploadAssetPart(input: unknown): Promise<UnitResult<AssetPartResult>> {
     return createJobUnits(this.env).uploadAssetPart(input);
   }
