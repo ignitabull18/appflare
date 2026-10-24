@@ -93,13 +93,21 @@ export function runSandboxSettle(
     }
     let deployed: string | null = null;
     let steadyReason: string | null = null;
+    let missingDeployment: CloudflareApiError | null = null;
     try {
       deployed = activeVersionId(await cf().versions.listDeployments(SANDBOX_WORKER_NAME));
       if (deployed === null) steadyReason = "its traffic is split between versions";
     } catch (error) {
-      // A permission error, a missing Worker or the subrequest limit is the
-      // job's problem, not a reason to wait less carefully.
-      if (!transientApiError(error)) throw error;
+      // A fresh Worker can answer through its binding while this API still
+      // returns 10007. Confirm its reported version repeatedly below. A
+      // deleted/dangling binding cannot supply that proof. Permissions and
+      // unrelated API refusals remain terminal.
+      const missing =
+        error instanceof CloudflareApiError &&
+        error.status === 404 &&
+        error.errors.some((e) => e.code === 10007);
+      if (!transientApiError(error) && !missing) throw error;
+      if (missing) missingDeployment = error;
       steadyReason = `its deployments could not be read (${errorMessage(error)})`;
     }
 
@@ -118,6 +126,7 @@ export function runSandboxSettle(
       const answered = info.versionId ?? null;
       const base = { deployed, steadyReason, answers, sandboxVersion };
       if (answered === null) {
+        if (missingDeployment !== null) throw missingDeployment;
         return { ...base, mode: "unreported", answered: null, settled: false };
       }
       if (deployed !== null) steady = answered === deployed ? steady + 1 : 0;

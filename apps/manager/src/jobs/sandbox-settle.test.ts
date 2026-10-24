@@ -33,7 +33,7 @@ const DEPLOYMENTS = `/client/v4/accounts/${ACC}/workers/scripts/appflare-sandbox
 function setup(opts: {
   versionIds?: string[];
   /** How the deployments API answers: the version at 100%, or an error status. */
-  deployments?: { deployed: string } | { status: number };
+  deployments?: { deployed: string } | { status: number; code?: number };
   /** The unit runs over a (fake) `SELF` binding, in its own invocation. */
   remote?: boolean;
 }) {
@@ -47,7 +47,11 @@ function setup(opts: {
     if (url.pathname !== DEPLOYMENTS) throw new Error(`unexpected ${input}`);
     if ("status" in answer) {
       return Response.json(
-        { success: false, errors: [{ code: 10000, message: "refused" }], messages: [] },
+        {
+          success: false,
+          errors: [{ code: answer.code ?? 10000, message: "refused" }],
+          messages: [],
+        },
         { status: answer.status },
       );
     }
@@ -155,6 +159,32 @@ describe("awaitSandboxSettledPhase", () => {
     expect((await logs())[0]?.message).toMatch(
       /^The sandbox Worker is settled: Appflare could not tell its deployed version \(its deployments could not be read \(.*503.*\)\), so waited for one version to answer 3 times in a row/,
     );
+  });
+
+  it("confirms the serving version repeatedly when the deployments API still reports a fresh Worker absent", async () => {
+    const t = setup({
+      versionIds: [PREVIOUS, DEPLOYED],
+      deployments: { status: 404, code: 10007 },
+      remote: true,
+    });
+    const result = await awaitSandboxSettledPhase(t.steps, ACC);
+    expect(result).toMatchObject({ mode: "steady", settled: true, answered: DEPLOYED, answers: 4 });
+  });
+  it("does not excuse an absent Worker without a live, versioned binding", async () => {
+    const t = setup({ deployments: { status: 404, code: 10007 } });
+    await expect(awaitSandboxSettledPhase(t.steps, ACC)).rejects.toThrow(/404/);
+    const missing = setup({ deployments: { status: 404, code: 10007 } });
+    missing.sandbox.info = async () => {
+      throw new Error("Network connection lost");
+    };
+    await expect(awaitSandboxSettledPhase(missing.steps, ACC)).rejects.toThrow(
+      /Network connection lost/,
+    );
+  });
+  it("preserves unrelated 404 refusals", async () => {
+    const t = setup({ versionIds: [DEPLOYED], deployments: { status: 404, code: 9999 } });
+    await expect(awaitSandboxSettledPhase(t.steps, ACC)).rejects.toThrow(/404/);
+    expect(t.sandbox.infoCalls).toBe(0);
   });
 
   it("fails on a refused deployments read instead of waiting less carefully", async () => {
