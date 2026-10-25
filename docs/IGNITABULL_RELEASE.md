@@ -8,9 +8,23 @@ Future releases and automatic-update policy changes require their own authorizat
 
 ## Current production state - October 24, 2026
 
-Signed manager `0.6.0-ignitabull.3`, source
-`6bf1f23061f6a55bc2531ed701387d53e5a7ea00`, serves 100% of production as Worker
-version `d2adca31-c8e0-42ec-8742-d065581dea32`. The patch fixes default D1 recovery
+Signed manager `0.6.0-ignitabull.4`, source
+`209eaa9afffd833205b1d833e7f39145956710c0`, serves 100% of production as Worker
+version `7d8282f2-6152-4121-8072-d96eff1cb31f`. Manager .4 requests the live
+`zone-observability.write` scope on Cloudflare reconnect and explains it in the
+permission list. Existing grants remain usable and renewable while consent is
+pending; an explicit compatibility test passed. The code and signed release are
+live, but the new grant and direct hostname controls have not been verified yet:
+the browser is awaiting approval at the appflare.dev return screen. Do not claim
+that consent has completed. The previous .3 version is the immediate rollback.
+
+The cf-api suite passed 415 tests (7 preexisting skips). The manager full run had
+5,154 passing tests and one permission-list expectation needing the new feature;
+after updating that expectation, all 72 relevant connection/permission tests
+passed. Manager/cf-api typechecks, formatting, release build, signature and upload
+checks passed; all .4 release assets were anonymously downloaded and verified.
+
+Manager .3 fixes default D1 recovery
 names that previously included invalid binding separators. All 5,153 manager tests
 across 441 files, typecheck, formatting, release build, signature and upload checks passed.
 The three published assets were anonymously downloaded and independently verified.
@@ -50,7 +64,7 @@ and `work/production-validation/` rather than copied credentials or transcripts.
 
 ## Candidate artifacts
 
-Manager version: `0.6.0-ignitabull.3`; sandbox version:
+Manager version: `0.6.0-ignitabull.4`; sandbox version:
 `0.2.0-ignitabull.1`. Build from a clean committed checkout with pnpm 10.34.5.
 Use `--repository ignitabull18/appflare` with `scripts/release-pack.ts` for both
 artifacts. The artifact source SHA must equal the tested fork commit. Unsigned packs are review artifacts. Sign final candidates with the independent
