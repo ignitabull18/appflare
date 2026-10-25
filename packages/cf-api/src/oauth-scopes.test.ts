@@ -10,6 +10,16 @@ import {
   signInCanProbe,
 } from "./oauth-scopes";
 
+describe("hostname tracing OAuth permission", () => {
+  it("requests the live Zone Observability Write scope and identifies older grants", () => {
+    expect(MANAGER_OAUTH_API_SCOPES).toContain("zone-observability.write");
+    const older = MANAGER_OAUTH_API_SCOPES.filter((scope) => scope !== "zone-observability.write");
+    expect(missingManagerScopes(older)).toEqual(["zone-observability.write"]);
+    // Hostname tracing is independent of the existing analytics grant.
+    expect(missingSpendProtectionScopes(older)).toEqual([]);
+  });
+});
+
 describe("OAuth scopes of usage and spend protection", () => {
   it("asks every sign-in for analytics", () => {
     expect(MANAGER_OAUTH_API_SCOPES).toContain("account-analytics.read");

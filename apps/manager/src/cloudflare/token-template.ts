@@ -131,8 +131,18 @@ export const PIPELINES_FEATURE = "Apps that stream events";
  * what is missing.
  */
 export const SPEND_PROTECTION_FEATURE = "Usage and spend protection";
+export const HOSTNAME_TRACING_FEATURE = "Hostname tracing";
 
 export const TOKEN_PERMISSION_GROUPS = [
+  // OAuth scope verified in Cloudflare's catalog. No dashboard template key
+  // is confirmed, so token users add the named group manually.
+  {
+    key: "zone_observability",
+    type: "edit",
+    label: "Zone Observability",
+    onlyFor: HOSTNAME_TRACING_FEATURE,
+    manual: true,
+  },
   // Upload, version, deploy, and delete app Workers and the manager itself; their
   // secrets, cron triggers, workers.dev routes, and static assets.
   { key: "workers_scripts", type: "edit", label: "Workers Scripts" },

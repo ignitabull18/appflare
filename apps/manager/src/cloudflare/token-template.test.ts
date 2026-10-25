@@ -13,6 +13,7 @@ import {
   DATABASE_ELSEWHERE_FEATURE,
   EMAIL_ROUTING_FEATURE,
   EXTERNAL_DOMAINS_FEATURE,
+  HOSTNAME_TRACING_FEATURE,
   MANAGER_SCOPE_LABELS,
   optionalGroupsByFeature,
   type PermissionGroup,
@@ -143,6 +144,10 @@ describe("token template URLs", () => {
         names: groups.map(permissionName),
       })),
     ).toEqual([
+      {
+        feature: HOSTNAME_TRACING_FEATURE,
+        names: ["Zone Observability: Edit (add by hand)"],
+      },
       {
         feature: ACCESS_FEATURE,
         names: [

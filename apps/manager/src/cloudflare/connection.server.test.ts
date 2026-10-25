@@ -1,6 +1,6 @@
 import { reset } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import { createClient, type FetchLike } from "@appflare/cf-api";
+import { createClient, type FetchLike, MANAGER_OAUTH_API_SCOPES } from "@appflare/cf-api";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDb } from "../db/client";
 import { createMigrator } from "../db/migrate";
@@ -180,6 +180,17 @@ describe("an API token connection", () => {
 });
 
 describe("resolving an OAuth access token", () => {
+  it("keeps older grants usable and renewable while hostname tracing needs new consent", async () => {
+    const scopes = MANAGER_OAUTH_API_SCOPES.filter((s) => s !== "zone-observability.write");
+    await seedGrant({ scopes, accessExpiresAt: START + ACCESS_SAFETY_MARGIN_MS - 1 });
+    const view = await readConnectionState({ DB: env.DB, CF_GRANT_KEY: KEY_SECRET });
+    expect(view.ready).toBe(true);
+    expect(view.oauth?.missingScopes).toEqual(["zone-observability.write"]);
+    const { api, oauth } = world();
+    await client(provider(oauth.fetch), oauth.fetch).workers.listScripts();
+    expect(api.calls[0]?.authorization).toBe("Bearer cf-access-SECRET-1");
+    expect((await readGrant(env.DB))?.status).toBe("connected");
+  });
   it("uses the stored access token while it lasts, then the memo, without refreshing", async () => {
     await seedGrant();
     const { api, oauth } = world();

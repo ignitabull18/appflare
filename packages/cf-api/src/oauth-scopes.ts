@@ -41,6 +41,9 @@ export const MANAGER_OAUTH_SCOPE_BY_GROUP = {
   workers_routes: "workers-routes.write",
   ssl_and_certificates: "ssl-and-certificates.write",
   zone_settings: "zone-settings.write",
+  // Cloudflare's live OAuth catalog names Zone Observability Write
+  // `zone-observability.write` (verified 2026-10-24).
+  zone_observability: "zone-observability.write",
   email_routing_rule: "email-routing-rule.write",
   email_routing_address: "email-routing-address.read",
   // No Billing scope exists in the OAuth catalog, and an OAuth grant got

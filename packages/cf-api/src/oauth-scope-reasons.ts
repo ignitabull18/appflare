@@ -89,6 +89,10 @@ export const MANAGER_SCOPE_REASONS = {
     label: "Zone",
     text: "Zone lets Appflare list the domains in your account, so you can put Appflare or an app on one of them.",
   },
+  zone_observability: {
+    label: "Zone Observability",
+    text: "Zone Observability lets Appflare read hostname tracing settings and manage sampled tracing for Appflare and installed apps on your domains when you ask.",
+  },
   dns: {
     label: "DNS",
     text: "DNS lets Appflare check a domain's records before Appflare or an app moves onto it, and change them when you agree.",
