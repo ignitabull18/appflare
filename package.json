@@ -1,45 +1,10 @@
 {
-  "name": "appflare",
-  "version": "0.0.0",
+  "name": "appflare-production-validation",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.34.5",
   "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "build": "turbo run build",
-    "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint",
-    "format": "turbo run format",
-    "test": "turbo run test",
-    "test:dist": "turbo run test:dist",
-    "check": "turbo run typecheck lint test",
-    "wrangler": "dotenv -e .env -o -- wrangler",
-    "release:pack": "node scripts/release-pack.ts",
-    "deploy-repo": "node scripts/build-deploy-repo.ts"
-  },
-  "pnpm": {
-    "overrides": {
-      "@types/node": "22.20.4"
-    }
-  },
-  "devDependencies": {
-    "@appflare/pack": "workspace:*",
-    "@appflare/schema": "workspace:*",
-    "@biomejs/biome": "2.5.14",
-    "@changesets/cli": "3.0.3",
-    "@commitlint/cli": "21.2.3",
-    "@commitlint/config-conventional": "21.2.3",
-    "@cloudflare/vitest-pool-workers": "0.22.0",
-    "@cloudflare/workers-types": "5.20261019.1",
-    "@types/node": "22.20.4",
-    "create-appflare": "workspace:*",
-    "dotenv-cli": "11.0.0",
-    "tsdown": "0.23.0",
-    "turbo": "2.11.2",
-    "typescript": "7.0.2",
-    "vitest": "4.1.11",
-    "wrangler": "4.152.0"
+    "node": ">=22.0.0"
   }
 }

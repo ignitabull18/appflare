@@ -1,0 +1,13 @@
+{
+  "name": "appflare-production-validation",
+  "main": "production-validation.ts",
+  "compatibility_date": "2026-09-21",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "appflare-production-validation",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "production-validation-migrations"
+    }
+  ]
+}
