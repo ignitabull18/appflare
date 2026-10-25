@@ -40,7 +40,10 @@ describe("OAuth scope for each permission group", () => {
         continue;
       }
       expect(scope, group.key).toEqual(expect.any(String));
-      const level = group.type === "read" ? ".read" : ".write";
+      // Workers lifecycle operations use the current Admin role; Editor
+      // cannot create or delete the Workers Appflare installs/removes.
+      const level =
+        group.key === "workers_scripts" ? ".admin" : group.type === "read" ? ".read" : ".write";
       expect(scope?.endsWith(level), `${group.key} -> ${scope}`).toBe(true);
     }
   });
