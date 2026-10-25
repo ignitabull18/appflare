@@ -204,7 +204,12 @@ export async function startReconnect(deps: StartReconnectDeps): Promise<StartedR
   }
   const config = oauthClientConfig(deps.config);
   const grant = await readGrant(deps.db);
-  const clientId = grant?.clientId ?? config.clientId;
+  // An explicit registration override applies to this new consent flow.
+  // Refreshes still use the stored grant's own client; merely starting a
+  // reconnect must not change or revoke that working grant.
+  const clientId = deps.config.CF_OAUTH_CLIENT_ID?.trim()
+    ? config.clientId
+    : (grant?.clientId ?? config.clientId);
   const encoded = encodeOAuthState(state);
   const pkce = await createPkce();
   const identifier = await identifierFor(encoded);

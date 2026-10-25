@@ -218,7 +218,7 @@ describe("startReconnect", () => {
     expect(JSON.parse(row?.value ?? "{}")).toMatchObject({ userId: ADMIN });
   });
 
-  it("uses the stored grant's own client, and a development client otherwise", async () => {
+  it("uses an explicit client for new consent without replacing the existing grant", async () => {
     const dev = await start({
       config: {
         CF_OAUTH_CLIENT_ID: "dev-client",
@@ -241,7 +241,13 @@ describe("startReconnect", () => {
       memo: createConnectionMemo(),
     });
     const again = await start({ config: { CF_OAUTH_CLIENT_ID: "dev-client" } });
-    expect(again.url.searchParams.get("client_id")).toBe("grant-client");
+    expect(again.url.searchParams.get("client_id")).toBe("dev-client");
+    // Without an override, reconnect retains a custom grant's registration.
+    // This also proves starting the override did not replace that grant.
+    const unchanged = await start({ config: {} });
+    expect(unchanged.url.searchParams.get("client_id")).toBe("grant-client");
+    const blank = await start({ config: { CF_OAUTH_CLIENT_ID: " " } });
+    expect(blank.url.searchParams.get("client_id")).toBe("grant-client");
   });
 
   it("refuses before Cloudflare was ever connected, and an address it cannot return to", async () => {
