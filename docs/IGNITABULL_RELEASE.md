@@ -8,21 +8,35 @@ Future releases and automatic-update policy changes require their own authorizat
 
 ## Current production state - October 24, 2026
 
-Signed manager `0.6.0-ignitabull.4`, source
-`209eaa9afffd833205b1d833e7f39145956710c0`, serves 100% of production as Worker
-version `7d8282f2-6152-4121-8072-d96eff1cb31f`. Manager .4 requests the live
-`zone-observability.write` scope on Cloudflare reconnect and explains it in the
-permission list. Existing grants remain usable and renewable while consent is
-pending; an explicit compatibility test passed. The code and signed release are
-live, but the new grant and direct hostname controls have not been verified yet:
-the browser is awaiting approval at the appflare.dev return screen. Do not claim
-that consent has completed. The previous .3 version is the immediate rollback.
+Signed manager `0.6.0-ignitabull.6`, source
+`272165572517e044750ebc7f91eaed313099094d`, serves production as Worker version
+`2c885cf9-45b4-4c8f-b9f0-3ee867453d7d`. Hostname tracing is managed directly in
+Appflare through a verified private OAuth client. The user-approved reconnect
+completed in Aside; the stored grant includes `zone-observability.write`,
+Workers Admin lifecycle access and renewable offline access. Appflare reports
+9 of 9 capabilities ready. Chrome disabled hostname traces, Aside restored them,
+and independent API reads confirmed 0% then 10%, preserving zone default 0%.
+Both authenticated owner sessions display the AI catalogue (24 of 139 apps).
+Health reports D1 OK, schema 14 and authReady true. Existing bindings and apps
+were preserved.
 
-The cf-api suite passed 415 tests (7 preexisting skips). The manager full run had
-5,154 passing tests and one permission-list expectation needing the new feature;
-after updating that expectation, all 72 relevant connection/permission tests
-passed. Manager/cf-api typechecks, formatting, release build, signature and upload
-checks passed; all .4 release assets were anonymously downloaded and verified.
+Reconnect previously ignored an explicit client override in favor of the old
+grant's client. The fix applies an explicit override to new consent, preserves
+working grants until replacement verification and retains each stored client's
+identity for refresh. The private client's registered scope IDs must match the
+request, with authorization_code and refresh_token grants. Cloudflare's client
+editor maps similar labels to distinct Access scopes; verify saved IDs. Preserve
+CF_OAUTH_CLIENT_ID on future deployments. Old Scripts Write grants remain accepted.
+
+Validation: full .5 manager suite 5,155 passed; after .6's reconnect change, all
+225 Cloudflare/diagnostics/connection component tests passed. API suite 417 passed
+(7 preexisting skips). Typechecks, formatting, signed release build and upload
+checks passed; anonymous downloads verified all 187 files and signature.
+
+Separate limitation: Chrome's cross-site successful-consent return POST received
+403 before a matching Worker/WAF record was found in the bounded query. Aside
+completed the normal flow. Chrome's in-app tracing writes work. The historical
+Chrome 403 cause and prevention remain unproven; Chrome was not reset.
 
 Manager .3 fixes default D1 recovery
 names that previously included invalid binding separators. All 5,153 manager tests
@@ -35,9 +49,8 @@ the signed GitHub release connected without a staging credential seam. Experimen
 container imports are enabled. Worker traces and error monitoring are on; tracing
 samples 10%. Hostname tracing persists an exact `appflare.ignitabull.org` rule at
 10%, with default sampling 0% and no external destinations. Live Worker and edge
-traces were retrieved. The existing OAuth grant lacks zone tracing permission, so
-hostname settings were applied through the authorized connector; Appflare shows
-its manual Cloudflare instructions rather than a hostname toggle.
+traces were retrieved. The original grant lacked zone tracing permission; the verified .6 private-client
+reconnect now enables direct hostname controls in Appflare.
 
 Disposable production checks passed: public repository import, exact Node 22.23.4
 and pnpm 10.34.5 build records, installation, healthy container update, failed-update
@@ -64,7 +77,7 @@ and `work/production-validation/` rather than copied credentials or transcripts.
 
 ## Candidate artifacts
 
-Manager version: `0.6.0-ignitabull.4`; sandbox version:
+Manager version: `0.6.0-ignitabull.6`; sandbox version:
 `0.2.0-ignitabull.1`. Build from a clean committed checkout with pnpm 10.34.5.
 Use `--repository ignitabull18/appflare` with `scripts/release-pack.ts` for both
 artifacts. The artifact source SHA must equal the tested fork commit. Unsigned packs are review artifacts. Sign final candidates with the independent
