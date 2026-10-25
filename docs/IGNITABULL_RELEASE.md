@@ -1,13 +1,56 @@
-# Ignitabull release candidate
+# Ignitabull release and production validation
 
 This fork is maintained at `ignitabull18/appflare`, branch
 `fix/cloudflare-readiness-and-recovery`. Production deployment requires Jeremy's
-approval after the candidate and its checks have been reviewed. Publication and staging checks were authorized separately by Jeremy.
-Production deployment and automatic updates still need his approval.
+approval after the candidate and its checks have been reviewed. Jeremy approved the
+production release and subsequent sandbox, experimental container and tracing activation.
+Future releases and automatic-update policy changes require their own authorization.
+
+## Current production state - October 24, 2026
+
+Signed manager `0.6.0-ignitabull.3`, source
+`6bf1f23061f6a55bc2531ed701387d53e5a7ea00`, serves 100% of production as Worker
+version `d2adca31-c8e0-42ec-8742-d065581dea32`. The patch fixes default D1 recovery
+names that previously included invalid binding separators. All 5,153 manager tests
+across 441 files, typecheck, formatting, release build, signature and upload checks passed.
+The three published assets were anonymously downloaded and independently verified.
+
+Sandbox `0.2.0-ignitabull.1` was enabled through the normal production OAuth
+connection: all seven slots at the published 2/1/2/2 limits became healthy and
+the signed GitHub release connected without a staging credential seam. Experimental
+container imports are enabled. Worker traces and error monitoring are on; tracing
+samples 10%. Hostname tracing persists an exact `appflare.ignitabull.org` rule at
+10%, with default sampling 0% and no external destinations. Live Worker and edge
+traces were retrieved. The existing OAuth grant lacks zone tracing permission, so
+hostname settings were applied through the authorized connector; Appflare shows
+its manual Cloudflare instructions rather than a hostname toggle.
+
+Disposable production checks passed: public repository import, exact Node 22.23.4
+and pnpm 10.34.5 build records, installation, healthy container update, failed-update
+automatic restoration of image/Worker/recorded configuration, manual rollback,
+Pause in Aside, Resume in Chrome, and uninstall. A D1 fixture was deleted and
+recovered through Aside; SQL readback retained its exact marker. A controlled
+error from the production-built artifact mapped to `production-validation.ts:5:41`
+in Cloudflare tail. These results establish bounded behavior, not uninterrupted
+container updates or compatibility with arbitrary repositories.
+
+Both browsers retained authenticated owner access after the patch and displayed
+the AI catalogue (24 of 139 apps). Chrome displayed the corrected valid recovery
+name. Test Workers, container application and database were removed, while job and
+recovery history remains. All eight baseline container applications retained their
+IDs, images and limits; all baseline D1 databases and observed R2 buckets remain.
+Production D1/KV/Workflow, secrets, SELF, DNS and custom domain were preserved.
+The intended new persistent resources are `appflare-sandbox`, `appflare-builds`
+and its four container applications. Only test build objects were cleaned up.
+
+Source fixtures live separately on `test/production-feature-validation` in this
+fork; release code remains on `fix/cloudflare-readiness-and-recovery`. GitHub
+Actions remain disabled. Evidence is in the task's `outputs/appflare-production-features.md`
+and `work/production-validation/` rather than copied credentials or transcripts.
 
 ## Candidate artifacts
 
-Manager version: `0.6.0-ignitabull.2`; sandbox version:
+Manager version: `0.6.0-ignitabull.3`; sandbox version:
 `0.2.0-ignitabull.1`. Build from a clean committed checkout with pnpm 10.34.5.
 Use `--repository ignitabull18/appflare` with `scripts/release-pack.ts` for both
 artifacts. The artifact source SHA must equal the tested fork commit. Unsigned packs are review artifacts. Sign final candidates with the independent
@@ -50,7 +93,8 @@ Aside confirmed the disabled state. The original zone settings and empty rules
 were then restored, the original staging credential reinstated, and the test
 token revoked and verified absent. The production Worker version, full settings,
 bindings, custom-host DNS and wildcard DNS matched the baseline. Hostname tracing
-remains disabled after validation. Worker trace ingestion and its switches also
+was restored after that staging validation; the later production activation above
+leaves production tracing enabled. Worker trace ingestion and its switches also
 passed in the preceding test round.
 
 ## Production deployment preparation
