@@ -56,8 +56,15 @@ passed in the preceding test round.
 ## Production deployment preparation
 
 Production Worker `appflare` is in account
-`2b66aa2be0f7116c930a57acb4f0fc8e`. Its baseline active version is
-`41be888f-69d7-42ba-beb4-b39219e7e224`. Re-read immediately before deployment.
+`2b66aa2be0f7116c930a57acb4f0fc8e`. Its pre-release active version was
+`41be888f-69d7-42ba-beb4-b39219e7e224`. After Jeremy approved production
+deployment, signed manager .2 was deployed on October 24, 2026 as version
+`c6b0215b-4bee-4a88-8f2c-02807ca7a3d6` at 100% traffic. A fresh D1 recovery
+bookmark was captured first. Fresh password login in Chrome, passkey login in
+Aside, both AI catalogues (24 of 139 apps), authenticated reloads and HTTPS
+health probes passed with schema 14. The original bindings, secrets, storage,
+schedule, logging and domain settings were preserved. No rollback or password
+reset was needed. Re-read the current version before any future deployment.
 Preserve D1 `b3afcada-c5da-47d0-93a5-2d73665ec747`, KV
 `2fc38833387040cd9481ed91730349e7`, workflow `appflare-jobs`, and SELF service
 `appflare` entrypoint `JobUnits`. Preserve existing secret bindings in place;
@@ -77,9 +84,10 @@ version is refused. This image is available only in the Ignitabull account.
 
 The independent signing key has fingerprint
 `SHA256:XmdoUMaTLuZK7FthijSNcKWzQRO1y8ZhVdCzOz9X7ik`. Upstream verification
-keys are retained for catalog compatibility. The existing production manager
-does not trust the fork key yet: bootstrap requires a separately approved direct
-deployment of the reviewed candidate. The signed sandbox and initial manager releases were published as prereleases,
+keys are retained for catalog compatibility. The pre-release production manager
+did not trust the fork key. The separately approved direct deployment of the
+reviewed signed manager .2 completed that bootstrap; production now includes
+the fork verification key. The signed sandbox and initial manager releases were published as prereleases,
 and all six anonymous GitHub asset downloads passed integrity and signature checks.
 Manager .2 corrects the waiting Workflow binding handoff through SELF RPC, and
 adds bounded retries for fresh Worker version visibility (10007/100146) and
