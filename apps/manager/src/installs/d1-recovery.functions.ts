@@ -7,7 +7,12 @@ import { createDb } from "../db/client";
 import { installs, jobs, resources } from "../db/schema";
 import { releaseSettingsLock, tryAcquireSettingsLock } from "../db/settings-lock";
 import { requireRole } from "../server/auth.server";
-import { D1_RECOVERY_WINDOW_MS, recoveryDeadline, recoveryEligible } from "./d1-recovery";
+import {
+  D1_RECOVERY_WINDOW_MS,
+  recoveryDeadline,
+  recoveryEligible,
+  recoveryName,
+} from "./d1-recovery";
 
 export const listD1Recovery = createServerFn({ method: "GET" }).handler(async () => {
   await requireRole("admin");
@@ -34,7 +39,7 @@ export const listD1Recovery = createServerFn({ method: "GET" }).handler(async ()
       confirmedAt: r.confirmedAt?.toISOString() ?? null,
       deadline: recoveryDeadline(r.confirmedAt),
       eligible: recoveryEligible(r.confirmedAt, now),
-      destination: `${r.name.slice(0, 45)}-recovered-${r.id.slice(-6).toLowerCase()}`,
+      destination: recoveryName(r.name, r.cfId ?? r.id),
     }));
 });
 
