@@ -648,7 +648,7 @@ describe("manager scopes", () => {
 
   it("uses dot-delimited catalog ids", () => {
     for (const scope of MANAGER_OAUTH_API_SCOPES) {
-      expect(scope).toMatch(/^[a-z0-9-]+\.(read|write)$/);
+      expect(scope).toMatch(/^[a-z0-9-]+\.(read|write|admin)$/);
     }
   });
 

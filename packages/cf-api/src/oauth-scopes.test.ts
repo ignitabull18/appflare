@@ -20,6 +20,25 @@ describe("hostname tracing OAuth permission", () => {
   });
 });
 
+describe("current Workers OAuth roles", () => {
+  it("requests lifecycle access and retains compatibility with legacy grants", () => {
+    expect(MANAGER_OAUTH_API_SCOPES).toContain("workers-scripts.admin");
+    const legacy = MANAGER_OAUTH_API_SCOPES.map((scope) =>
+      scope === "workers-scripts.admin" ? "workers-scripts.write" : scope,
+    );
+    expect(missingManagerScopes(legacy)).toEqual([]);
+    expect(signInCanProbe("workersDev", legacy)).toBe(true);
+  });
+
+  it("does not accept Editor as lifecycle permission", () => {
+    const editor = MANAGER_OAUTH_API_SCOPES.map((scope) =>
+      scope === "workers-scripts.admin" ? "workers-scripts.edit" : scope,
+    );
+    expect(missingManagerScopes(editor)).toEqual(["workers-scripts.admin"]);
+    expect(signInCanProbe("workersDev", editor)).toBe(false);
+  });
+});
+
 describe("OAuth scopes of usage and spend protection", () => {
   it("asks every sign-in for analytics", () => {
     expect(MANAGER_OAUTH_API_SCOPES).toContain("account-analytics.read");

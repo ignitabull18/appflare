@@ -23,7 +23,10 @@ import type { CapabilityProbe } from "./capabilities";
  * manager's tests fail when one is added without a decision.
  */
 export const MANAGER_OAUTH_SCOPE_BY_GROUP = {
-  workers_scripts: "workers-scripts.write",
+  // Current client registrations expose granular Workers roles. Appflare
+  // creates and deletes Workers, so Editor is insufficient; Admin covers
+  // the lifecycle operations previously covered by Scripts Write.
+  workers_scripts: "workers-scripts.admin",
   workers_kv_storage: "workers-kv-storage.write",
   d1: "d1.write",
   workers_r2: "workers-r2.write",
@@ -125,7 +128,7 @@ export const MANAGER_OAUTH_SCOPES_BY_PROBE = {
   zone: ["zone.read"],
   // The zone list, then Email Routing's settings on the first zone.
   emailRouting: ["zone.read", "zone-settings.write"],
-  workersDev: ["workers-scripts.write"],
+  workersDev: ["workers-scripts.admin"],
   zeroTrust: ["access-acct.read"],
   analyticsEngine: [],
   accessServiceTokens: ["access-service-token.write"],
@@ -139,7 +142,14 @@ export function signInCanProbe(probe: CapabilityProbe, granted: readonly string[
   const needs: readonly string[] | null = MANAGER_OAUTH_SCOPES_BY_PROBE[probe];
   if (needs === null) return false;
   const have = new Set(granted);
-  return needs.every((scope) => have.has(scope));
+  return needs.every((scope) => coversManagerScope(have, scope));
+}
+
+/** Legacy Scripts Write grants retain their existing lifecycle access. */
+function coversManagerScope(have: ReadonlySet<string>, scope: string): boolean {
+  return (
+    have.has(scope) || (scope === "workers-scripts.admin" && have.has("workers-scripts.write"))
+  );
 }
 
 /**
@@ -149,7 +159,7 @@ export function signInCanProbe(probe: CapabilityProbe, granted: readonly string[
  */
 export function missingManagerScopes(granted: readonly string[]): string[] {
   const have = new Set(granted);
-  return MANAGER_OAUTH_API_SCOPES.filter((scope) => !have.has(scope));
+  return MANAGER_OAUTH_API_SCOPES.filter((scope) => !coversManagerScope(have, scope));
 }
 
 /**

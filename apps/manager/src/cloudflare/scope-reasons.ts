@@ -18,6 +18,7 @@ import {
  * showing its bare id.
  */
 const FORMER_SCOPE_REASONS: ReadonlyArray<readonly [string, ScopeReason]> = [
+  ["workers-scripts.write", MANAGER_SCOPE_REASONS.workers_scripts],
   [
     "workers-tail.read",
     {
